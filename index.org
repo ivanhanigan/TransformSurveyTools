@@ -1,0 +1,16 @@
+#+TITLE:Transformations Survey Tools 
+#+AUTHOR: Ivan Hanigan
+#+email: ivan.hanigan@anu.edu.au
+#+LaTeX_CLASS: article
+#+LaTeX_CLASS_OPTIONS: [a4paper]
+#+LATEX: \tableofcontents
+-----
+
+* Introduction
+* Background
+* Methods
+** Classification And Regression Trees
+** Computing-and-using-deviance-with-classification-trees
+I'm reading Ritschard, G. (2006). Computing and using the deviance with classification trees. In Compstat 2006 - Proceedings in Computational Statistics 17th Symposium Held in Rome, Italy, 2006. Retrieved from http://link.springer.com/chapter/10.1007%2F978-3-7908-1709-6_5
+
+This is implemented in SPSS code. I'll try to develop R code to do these tests.
