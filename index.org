@@ -14,3 +14,78 @@
 I'm reading Ritschard, G. (2006). Computing and using the deviance with classification trees. In Compstat 2006 - Proceedings in Computational Statistics 17th Symposium Held in Rome, Italy, 2006. Retrieved from http://link.springer.com/chapter/10.1007%2F978-3-7908-1709-6_5
 
 This is implemented in SPSS code. I'll try to develop R code to do these tests.
+*** tree-deviance-code
+#+name:tree-deviance
+#+begin_src R :session *R* :tangle src/tree-deviance.r :eval no
+  ################################################################
+  # name:tree-deviance
+  gender <- c("male", 
+  "male", 
+  "male", 
+  "female",
+  "female",
+  "female",
+  "male",
+  "male",
+  "male",
+  "female",
+  "female",
+  "female",
+  "male", 
+  "male", 
+  "male", 
+  "female",
+  "female",
+  "female")
+  
+  civil_status <- c("married", "married", "married", "married", "married", "married",
+  "single", "single", "single", "single", "single", "single",
+  "divorced/widowed", "divorced/widowed", "divorced/widowed", "divorced/widowed",
+  "divorced/widowed", "divorced/widowed")
+  
+  activity_sector <- c("primary",
+  "secondary","tertiary","primary",
+  "secondary","tertiary","primary",
+  "secondary","tertiary","primary",
+  "secondary","tertiary","primary",
+  "secondary","tertiary","primary",
+  "secondary","tertiary")
+  
+  number_of_cases <- c(50, 40, 6, 0,
+  14, 10, 5, 5,
+  12, 50, 30, 18, 5, 8,
+  10, 6, 2, 2)
+  
+  
+  ls()
+  civst_gend_sector <- as.data.frame(cbind(civil_status, gender, activity_sector, number_of_cases))
+  civst_gend_sector[4:6,]
+  civst_gend_sector$number_of_cases <- as.numeric(as.character(civst_gend_sector$number_of_cases))
+  df <- as.data.frame(matrix(NA, nrow = 0, ncol = 3))
+  for(i in 1:nrow(civst_gend_sector))
+      {
+      #    i <- 1
+          n <- civst_gend_sector$number_of_cases[i]
+          if(n == 0) next
+          for(j in 1:n)
+              {
+                df <- rbind(df, civst_gend_sector[i,1:3])              
+              }
+   
+      }
+  nrow(df)
+  require(rpart)
+  fit <- rpart(civil_status ~ gender + activity_sector, data = df)
+  #summary(fit)
+  #?rpart
+  par(xpd = NA) 
+  plot(fit)
+  text(fit, use.n = TRUE)
+  install.packages("partykit") #repos="http://R-Forge.R-project.org")
+  require(partykit)
+  plot(as.party(fit))
+  
+  
+  
+  
+#+end_src

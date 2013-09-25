@@ -1,13 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="iso-8859-1"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
                "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>Transformations Survey Tools </title>
-<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+<meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1"/>
 <meta name="title" content="Transformations Survey Tools "/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2013-09-24T21:47+1000"/>
+<meta name="generated" content="2013-09-25T21:11+1000"/>
 <meta name="author" content="Ivan Hanigan"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -130,7 +130,11 @@ for the JavaScript code in this tag.
 <li><a href="#sec-3">3 Methods</a>
 <ul>
 <li><a href="#sec-3-1">3.1 Classification And Regression Trees</a></li>
-<li><a href="#sec-3-2">3.2 Computing-and-using-deviance-with-classification-trees</a></li>
+<li><a href="#sec-3-2">3.2 Computing-and-using-deviance-with-classification-trees</a>
+<ul>
+<li><a href="#sec-3-2-1">3.2.1 tree-deviance-code</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -176,7 +180,91 @@ for the JavaScript code in this tag.
 </p>
 <p>
 This is implemented in SPSS code. I'll try to develop R code to do these tests.
-</p></div>
+</p>
+</div>
+
+<div id="outline-container-3-2-1" class="outline-4">
+<h4 id="sec-3-2-1"><span class="section-number-4">3.2.1</span> tree-deviance-code</h4>
+<div class="outline-text-4" id="text-3-2-1">
+
+
+
+
+<pre class="src src-R"><span style="color: #586e75;">################################################################</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">name:tree-deviance</span>
+gender <span style="color: #268bd2; font-weight: bold;">&lt;-</span> c(<span style="color: #2aa198;">"male"</span>, 
+<span style="color: #2aa198;">"male"</span>, 
+<span style="color: #2aa198;">"male"</span>, 
+<span style="color: #2aa198;">"female"</span>,
+<span style="color: #2aa198;">"female"</span>,
+<span style="color: #2aa198;">"female"</span>,
+<span style="color: #2aa198;">"male"</span>,
+<span style="color: #2aa198;">"male"</span>,
+<span style="color: #2aa198;">"male"</span>,
+<span style="color: #2aa198;">"female"</span>,
+<span style="color: #2aa198;">"female"</span>,
+<span style="color: #2aa198;">"female"</span>,
+<span style="color: #2aa198;">"male"</span>, 
+<span style="color: #2aa198;">"male"</span>, 
+<span style="color: #2aa198;">"male"</span>, 
+<span style="color: #2aa198;">"female"</span>,
+<span style="color: #2aa198;">"female"</span>,
+<span style="color: #2aa198;">"female"</span>)
+
+civil_status <span style="color: #268bd2; font-weight: bold;">&lt;-</span> c(<span style="color: #2aa198;">"married"</span>, <span style="color: #2aa198;">"married"</span>, <span style="color: #2aa198;">"married"</span>, <span style="color: #2aa198;">"married"</span>, <span style="color: #2aa198;">"married"</span>, <span style="color: #2aa198;">"married"</span>,
+<span style="color: #2aa198;">"single"</span>, <span style="color: #2aa198;">"single"</span>, <span style="color: #2aa198;">"single"</span>, <span style="color: #2aa198;">"single"</span>, <span style="color: #2aa198;">"single"</span>, <span style="color: #2aa198;">"single"</span>,
+<span style="color: #2aa198;">"divorced/widowed"</span>, <span style="color: #2aa198;">"divorced/widowed"</span>, <span style="color: #2aa198;">"divorced/widowed"</span>, <span style="color: #2aa198;">"divorced/widowed"</span>,
+<span style="color: #2aa198;">"divorced/widowed"</span>, <span style="color: #2aa198;">"divorced/widowed"</span>)
+
+activity_sector <span style="color: #268bd2; font-weight: bold;">&lt;-</span> c(<span style="color: #2aa198;">"primary"</span>,
+<span style="color: #2aa198;">"secondary"</span>,<span style="color: #2aa198;">"tertiary"</span>,<span style="color: #2aa198;">"primary"</span>,
+<span style="color: #2aa198;">"secondary"</span>,<span style="color: #2aa198;">"tertiary"</span>,<span style="color: #2aa198;">"primary"</span>,
+<span style="color: #2aa198;">"secondary"</span>,<span style="color: #2aa198;">"tertiary"</span>,<span style="color: #2aa198;">"primary"</span>,
+<span style="color: #2aa198;">"secondary"</span>,<span style="color: #2aa198;">"tertiary"</span>,<span style="color: #2aa198;">"primary"</span>,
+<span style="color: #2aa198;">"secondary"</span>,<span style="color: #2aa198;">"tertiary"</span>,<span style="color: #2aa198;">"primary"</span>,
+<span style="color: #2aa198;">"secondary"</span>,<span style="color: #2aa198;">"tertiary"</span>)
+
+number_of_cases <span style="color: #268bd2; font-weight: bold;">&lt;-</span> c(50, 40, 6, 0,
+14, 10, 5, 5,
+12, 50, 30, 18, 5, 8,
+10, 6, 2, 2)
+
+
+ls()
+civst_gend_sector <span style="color: #268bd2; font-weight: bold;">&lt;-</span> as.data.frame(cbind(civil_status, gender, activity_sector, number_of_cases))
+civst_gend_sector[4:6,]
+civst_gend_sector$number_of_cases <span style="color: #268bd2; font-weight: bold;">&lt;-</span> as.numeric(as.character(civst_gend_sector$number_of_cases))
+df <span style="color: #268bd2; font-weight: bold;">&lt;-</span> as.data.frame(matrix(<span style="color: #b58900;">NA</span>, nrow = 0, ncol = 3))
+<span style="color: #859900; font-weight: bold;">for</span>(i <span style="color: #859900; font-weight: bold;">in</span> 1:nrow(civst_gend_sector))
+    {
+    <span style="color: #586e75;">#    </span><span style="color: #586e75;">i &lt;- 1</span>
+        n <span style="color: #268bd2; font-weight: bold;">&lt;-</span> civst_gend_sector$number_of_cases[i]
+        <span style="color: #859900; font-weight: bold;">if</span>(n == 0) <span style="color: #859900; font-weight: bold;">next</span>
+        <span style="color: #859900; font-weight: bold;">for</span>(j <span style="color: #859900; font-weight: bold;">in</span> 1:n)
+            {
+              df <span style="color: #268bd2; font-weight: bold;">&lt;-</span> rbind(df, civst_gend_sector[i,1:3])              
+            }
+
+    }
+nrow(df)
+<span style="color: #268bd2; font-weight: bold;">require</span>(rpart)
+fit <span style="color: #268bd2; font-weight: bold;">&lt;-</span> rpart(civil_status ~ gender + activity_sector, data = df)
+<span style="color: #586e75;">#</span><span style="color: #586e75;">summary(fit)</span>
+<span style="color: #586e75;">#</span><span style="color: #586e75;">?rpart</span>
+par(xpd = <span style="color: #b58900;">NA</span>) 
+plot(fit)
+text(fit, use.n = <span style="color: #b58900;">TRUE</span>)
+install.packages(<span style="color: #2aa198;">"partykit"</span>) <span style="color: #586e75;">#</span><span style="color: #586e75;">repos="http://R-Forge.R-project.org")</span>
+<span style="color: #268bd2; font-weight: bold;">require</span>(partykit)
+plot(as.party(fit))
+
+
+
+
+</pre>
+
+</div>
+</div>
 </div>
 </div>
 </div>
