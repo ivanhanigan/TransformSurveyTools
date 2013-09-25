@@ -75,6 +75,7 @@ This is implemented in SPSS code. I'll try to develop R code to do these tests.
       }
   nrow(df)
   require(rpart)
+  fit <- rpart(civil_status ~ gender + activity_sector, data = civst_gend_sector, weights = number_of_cases)
   fit <- rpart(civil_status ~ gender + activity_sector, data = df)
   #summary(fit)
   #?rpart
