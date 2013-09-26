@@ -7,27 +7,40 @@
 -----
 
 * Introduction
-* Background
-* Methods
-** Classification And Regression Trees
-** Computing-and-using-deviance-with-classification-trees
+This is documentation for tools I'm using to analyse survey data about Transformational Adaptation, and an associated R package I'm developing to build new tools.
+
+The structure of this document follows [[http://stackoverflow.com/a/1434424][Reichian LCFD approach]]. 
+* Functions
+** foreign
+** TransformSurveyTools
+* Load
+* Clean
+** ReportTools
+** Recoding: Trichotomise
+** Reshape: To Long
+** Reshape: To Wide
+** Summarise
+* Do
+** Misclassification Error Rate for Classification Trees
+** Deviance Based Measures of Descriptive Power for Classification Trees
+*** Computing-and-using-deviance-with-classification-trees-Ritschard, G. (2006).
 I'm reading Ritschard, G. (2006). Computing and using the deviance with classification trees. In Compstat 2006 - Proceedings in Computational Statistics 17th Symposium Held in Rome, Italy, 2006. Retrieved from http://link.springer.com/chapter/10.1007%2F978-3-7908-1709-6_5
 
 This is implemented in SPSS code. I'll try to develop R code to do these tests.
 
 First I'll get the data out of their paper and fit the tree in figure 1
 
-*** tree-data
+*** sample-tree-data
 #+name:tree-deviance
 #+begin_src R :session *R* :tangle inst/doc/tree-data.r :eval no
-  ################################################################
-  # name:tree-deviance
+  #########################################
   # func
   require(rpart)
   require(partykit) 
   
   # load
-  civst_gend_sector  <- read.csv(textConnection("civil_status gender activity_sector number_of_cases
+  civst_gend_sector  <- read.csv(textConnection(
+      "civil_status gender activity_sector number_of_cases
            married   male         primary              50
            married   male       secondary              40
            married   male        tertiary               6
@@ -169,7 +182,7 @@ Using the case weights like above is convenient especially when datasets are ver
   
 #+end_src
 
-** Chisquare test of deviance for Classification trees
+*** Chisquare test of deviance for Classification trees
 I want to use the deviance as well as the misclassification error rate for measuring the descriptive power of the tree.  Using the tree package we can access the deviance of the fitted Classification tree.  Ripley's tree package is the only one I found to give me deviance for classification trees, the other packages only return this for regression trees.
 
 If we look at the reduction in deviance between the Null model and the fitted tree we can say that the tree explains about XYZ% of the variation. We can also test if this is a statistically significant reduction (based on a chi-squared test), but should also comment about how much explanation this is in practical terms.
@@ -210,7 +223,7 @@ The attached papers suggest a method to test differences between nested trees ie
 #+end_src
 
 
-*** TODO R function to calculate for classification trees
+*** TODO Check This: R function to calculate for classification trees
 The Ritschard (2006) paper (with SPSS code) describes a complicated method that includes Needing to retrieve for each case: 
 - leaf number and
 - profile number
@@ -223,7 +236,7 @@ So let's start simple first.  The following code follows the simpler approach:
 - Under hypothesis that less complex (reduced) model is adequate, difference follows chi-square distribution
 
 *** R-tree.chisq
-**** R code
+*** R code
 #+name:tree.chisq
 #+begin_src R :session *R* :tangle R/tree.chisq.r :eval no
   ################################################################
@@ -242,11 +255,14 @@ So let's start simple first.  The following code follows the simpler approach:
   }
   
 #+end_src
-**** test-tree.chisq
+*** test-tree.chisq
 #+name:tree.chisq
 #+begin_src R :session *R* :tangle tests/test-tree.chisq.r :eval no
+  # func
   require(tree)
-  
+  require(devtools)
+  install_github("TransformSurveyTools", "ivanhanigan")
+  require(TransformSurveyTools)
   # load locally
   # fpath  <- "inst/extdata/civst_gend_sector_full.csv"
   # or via package
