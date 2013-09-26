@@ -1,12 +1,12 @@
 
-################################################################
-# name:tree-deviance
+#########################################
 # func
 require(rpart)
 require(partykit) 
 
 # load
-civst_gend_sector  <- read.csv(textConnection("civil_status gender activity_sector number_of_cases
+civst_gend_sector  <- read.csv(textConnection(
+    "civil_status gender activity_sector number_of_cases
          married   male         primary              50
          married   male       secondary              40
          married   male        tertiary               6

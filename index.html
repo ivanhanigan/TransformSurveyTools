@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1"/>
 <meta name="title" content="Transformations Survey Tools "/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2013-09-26T23:35+1000"/>
+<meta name="generated" content="2013-09-27T00:46+1000"/>
 <meta name="author" content="Ivan Hanigan"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -125,21 +125,18 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#sec-1">1 Introduction</a>
-<ul>
-<li>
-<ul>
-<li><a href="#sec-1-1">1.1 install-tools-code</a></li>
-</ul></li>
-</ul>
-</li>
+<li><a href="#sec-1">1 Introduction</a></li>
 <li><a href="#sec-2">2 Functions</a>
 <ul>
 <li><a href="#sec-2-1">2.1 foreign</a></li>
-<li><a href="#sec-2-2">2.2 TransformSurveyTools</a></li>
+<li><a href="#sec-2-2">2.2 TreeTools</a></li>
 </ul>
 </li>
-<li><a href="#sec-3">3 Load</a></li>
+<li><a href="#sec-3">3 Load</a>
+<ul>
+<li><a href="#sec-3-1">3.1 read.spss</a></li>
+</ul>
+</li>
 <li><a href="#sec-4">4 Clean</a>
 <ul>
 <li><a href="#sec-4-1">4.1 ReportTools</a></li>
@@ -163,6 +160,7 @@ for the JavaScript code in this tag.
 <li><a href="#sec-5-2-7">5.2.7 R-tree.chisq</a></li>
 <li><a href="#sec-5-2-8">5.2.8 R code</a></li>
 <li><a href="#sec-5-2-9">5.2.9 test-tree.chisq</a></li>
+<li><a href="#sec-5-2-10">5.2.10 main-tree-model</a></li>
 </ul>
 </li>
 </ul>
@@ -175,28 +173,23 @@ for the JavaScript code in this tag.
 <h2 id="sec-1"><span class="section-number-2">1</span> Introduction</h2>
 <div class="outline-text-2" id="text-1">
 
-<p>This is documentation for tools I'm using to analyse survey data about Transformational Adaptation, and an associated R package I'm developing to build new tools.
-</p>
-</div>
-
-<div id="outline-container-1-1" class="outline-4">
-<h4 id="sec-1-1"><span class="section-number-4">1.1</span> install-tools-code</h4>
-<div class="outline-text-4" id="text-1-1">
 
 
 
 
 <pre class="src src-R"><span style="color: #586e75;">################################################################</span>
-<span style="color: #586e75;"># </span><span style="color: #586e75;">name:install-tools</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">This is documentation for tools I'm using to analyse survey data</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">about Transformational Adaptation, and an associated R package I'm</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">developing to build new tools.</span>
 <span style="color: #268bd2; font-weight: bold;">require</span>(devtools)
 install_github(<span style="color: #2aa198;">"TransformSurveyTools"</span>, <span style="color: #2aa198;">"ivanhanigan"</span>)
+<span style="color: #268bd2; font-weight: bold;">require</span>(TransformSurveyTools)
 </pre>
 
 
 <p>
 The structure of this document follows <a href="http://stackoverflow.com/a/1434424">Reichian LCFD approach</a>. 
 </p></div>
-</div>
 
 </div>
 
@@ -211,13 +204,36 @@ The structure of this document follows <a href="http://stackoverflow.com/a/14344
 <h3 id="sec-2-1"><span class="section-number-3">2.1</span> foreign</h3>
 <div class="outline-text-3" id="text-2-1">
 
+
+
+
+
+<pre class="src src-R"><span style="color: #586e75;">################################################################</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">name:foreign</span>
+<span style="color: #268bd2; font-weight: bold;">require</span>(foreign)
+</pre>
+
+
 </div>
 
 </div>
 
 <div id="outline-container-2-2" class="outline-3">
-<h3 id="sec-2-2"><span class="section-number-3">2.2</span> TransformSurveyTools</h3>
+<h3 id="sec-2-2"><span class="section-number-3">2.2</span> TreeTools</h3>
 <div class="outline-text-3" id="text-2-2">
+
+
+
+
+
+<pre class="src src-R"><span style="color: #586e75;">################################################################</span>
+<span style="color: #268bd2; font-weight: bold;">require</span>(tree)
+<span style="color: #268bd2; font-weight: bold;">require</span>(rpart)
+<span style="color: #268bd2; font-weight: bold;">require</span>(party) 
+<span style="color: #268bd2; font-weight: bold;">require</span>(partykit) 
+
+</pre>
+
 
 </div>
 </div>
@@ -228,6 +244,30 @@ The structure of this document follows <a href="http://stackoverflow.com/a/14344
 <h2 id="sec-3"><span class="section-number-2">3</span> Load</h2>
 <div class="outline-text-2" id="text-3">
 
+
+</div>
+
+<div id="outline-container-3-1" class="outline-3">
+<h3 id="sec-3-1"><span class="section-number-3">3.1</span> read.spss</h3>
+<div class="outline-text-3" id="text-3-1">
+
+
+
+
+
+<pre class="src src-R"><span style="color: #586e75;">################################################################</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">name:main</span>
+filename  <span style="color: #268bd2; font-weight: bold;">&lt;-</span> <span style="color: #2aa198;">"fname.sav"</span>
+analyte  <span style="color: #268bd2; font-weight: bold;">&lt;-</span> read.spss(filename, to.data.frame=T)
+<span style="color: #586e75;"># </span><span style="color: #586e75;">ignore warnings</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">str(analyte)</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">names(analyte)</span>
+variable_labels <span style="color: #268bd2; font-weight: bold;">&lt;-</span> attributes(analyte)$variable.labels
+
+</pre>
+
+
+</div>
 </div>
 
 </div>
@@ -473,9 +513,6 @@ If we look at the reduction in deviance between the Null model and the fitted tr
 
 
 <p>
-I don't really get this, and haven't turned up many references to Ritschard since he wrote these.
-</p>
-<p>
 I really want to use the deviance as well as the misclassification error rate for measuring the descriptive power of the tree.
 Ripley's tree package is the only one I found to give me deviance for classification trees.
 </p>
@@ -493,9 +530,10 @@ So let's start simple first.  The following code follows the simpler approach:
 </li>
 <li>Take the difference in degrees of freedom for the models
 </li>
-<li>Under hypothesis that less complex (reduced) model is adequate, difference follows chi-square distribution
+<li>difference between less complex and more complex model follows chi-square distribution
 </li>
 </ul>
+
 
 
 </div>
@@ -584,6 +622,20 @@ tree.chisq(null_model = model0, fitted_model = model1)
 </pre>
 
 
+
+</div>
+
+</div>
+
+<div id="outline-container-5-2-10" class="outline-4">
+<h4 id="sec-5-2-10"><span class="section-number-4">5.2.10</span> main-tree-model</h4>
+<div class="outline-text-4" id="text-5-2-10">
+
+
+
+
+<pre class="src src-R"><span style="color: #268bd2; font-weight: bold;">source</span>(<span style="color: #2aa198;">"tests/test-tree.chisq.r"</span>)
+</pre>
 
 </div>
 </div>

@@ -7,21 +7,57 @@
 -----
 
 * Introduction
-This is documentation for tools I'm using to analyse survey data about Transformational Adaptation, and an associated R package I'm developing to build new tools.
-*** install-tools-code
+
 #+name:install-tools
-#+begin_src R :session *R* :eval no
-################################################################
-# name:install-tools
-require(devtools)
-install_github("TransformSurveyTools", "ivanhanigan")
+#+begin_src R :session *R* :tangle inst/doc/main.r :eval no
+  ################################################################
+  # This is documentation for tools I'm using to analyse survey data
+  # about Transformational Adaptation, and an associated R package I'm
+  # developing to build new tools.
+  require(devtools)
+  install_github("TransformSurveyTools", "ivanhanigan")
+  require(TransformSurveyTools)
 #+end_src
 
 The structure of this document follows [[http://stackoverflow.com/a/1434424][Reichian LCFD approach]]. 
 * Functions
 ** foreign
-** TransformSurveyTools
+
+#+name:foreign
+#+begin_src R :session *R* :tangle inst/doc/main.r :eval no
+################################################################
+# name:foreign
+require(foreign)
+#+end_src
+
+** TreeTools
+
+#+name:main
+#+begin_src R :session *R* :tangle inst/doc/main.r :eval no
+################################################################
+require(tree)
+require(rpart)
+require(party) 
+require(partykit) 
+
+#+end_src
+
 * Load
+** read.spss
+
+#+name:main
+#+begin_src R :session *R* :tangle inst/doc/main.r :eval no
+  ################################################################
+  # name:main
+  filename  <- "fname.sav"
+  analyte  <- read.spss(filename, to.data.frame=T)
+  # ignore warnings
+  # str(analyte)
+  # names(analyte)
+  variable_labels <- attributes(analyte)$variable.labels
+
+#+end_src
+
 * Clean
 ** ReportTools
 ** Recoding: Trichotomise
@@ -236,8 +272,6 @@ The Ritschard (2006) paper (with SPSS code) describes a complicated method that 
 - leaf number and
 - profile number
 
-I don't really get this, and haven't turned up many references to Ritschard since he wrote these.
-
 I really want to use the deviance as well as the misclassification error rate for measuring the descriptive power of the tree.
 Ripley's tree package is the only one I found to give me deviance for classification trees.
 
@@ -249,8 +283,13 @@ I haven't turned up many references to Ritschard since he wrote these.
 So let's start simple first.  The following code follows the simpler approach:
 - Take the difference in the deviance for the models (less complex model minus more complex model)
 - Take the difference in degrees of freedom for the models
-- Under hypothesis that less complex (reduced) model is adequate, difference follows chi-square distribution
+- difference between less complex and more complex model follows chi-square distribution
 
+*** COMMENT http://www.stat.ufl.edu/~winner/sta6127/chapter15.ppt
+slide 22 
+Two statistics are used to test whether a model is appropriate: the Pearson chi-square statistic and the likelihood ratio (aka Deviance) statistic
+slide 28
+Under hypothesis that less complex (reduced) model is adequate, difference follows chi-square distribution
 *** R-tree.chisq
 *** R code
 #+name:tree.chisq
@@ -383,4 +422,9 @@ So let's start simple first.  The following code follows the simpler approach:
 ################################################################
 # name:tree.chisq
 
+#+end_src
+*** main-tree-model
+#+name:tree.chisq
+#+begin_src R :session *R* :tangle inst/doc/main.r :eval no
+source("tests/test-tree.chisq.r")
 #+end_src
