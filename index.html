@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1"/>
 <meta name="title" content="Transformations Survey Tools "/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2013-09-26T22:59+1000"/>
+<meta name="generated" content="2013-09-26T23:35+1000"/>
 <meta name="author" content="Ivan Hanigan"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -125,7 +125,14 @@ for the JavaScript code in this tag.
 <h2>Table of Contents</h2>
 <div id="text-table-of-contents">
 <ul>
-<li><a href="#sec-1">1 Introduction</a></li>
+<li><a href="#sec-1">1 Introduction</a>
+<ul>
+<li>
+<ul>
+<li><a href="#sec-1-1">1.1 install-tools-code</a></li>
+</ul></li>
+</ul>
+</li>
 <li><a href="#sec-2">2 Functions</a>
 <ul>
 <li><a href="#sec-2-1">2.1 foreign</a></li>
@@ -170,9 +177,26 @@ for the JavaScript code in this tag.
 
 <p>This is documentation for tools I'm using to analyse survey data about Transformational Adaptation, and an associated R package I'm developing to build new tools.
 </p>
+</div>
+
+<div id="outline-container-1-1" class="outline-4">
+<h4 id="sec-1-1"><span class="section-number-4">1.1</span> install-tools-code</h4>
+<div class="outline-text-4" id="text-1-1">
+
+
+
+
+<pre class="src src-R"><span style="color: #586e75;">################################################################</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">name:install-tools</span>
+<span style="color: #268bd2; font-weight: bold;">require</span>(devtools)
+install_github(<span style="color: #2aa198;">"TransformSurveyTools"</span>, <span style="color: #2aa198;">"ivanhanigan"</span>)
+</pre>
+
+
 <p>
 The structure of this document follows <a href="http://stackoverflow.com/a/1434424">Reichian LCFD approach</a>. 
 </p></div>
+</div>
 
 </div>
 
@@ -450,6 +474,17 @@ If we look at the reduction in deviance between the Null model and the fitted tr
 
 <p>
 I don't really get this, and haven't turned up many references to Ritschard since he wrote these.
+</p>
+<p>
+I really want to use the deviance as well as the misclassification error rate for measuring the descriptive power of the tree.
+Ripley's tree package is the only one I found to give me deviance for classification trees.
+</p>
+<p>
+The Ritschard papers suggest nice methods to test differences between nested trees ie testing the difference with the root node with a Chi-square statistic (equivalent of the usual method used in logistic regression).
+</p>
+<p>
+Is this method employed widely in analysing survey data?
+I haven't turned up many references to Ritschard since he wrote these.
 </p>
 <p>
 So let's start simple first.  The following code follows the simpler approach:

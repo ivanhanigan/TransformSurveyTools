@@ -8,6 +8,14 @@
 
 * Introduction
 This is documentation for tools I'm using to analyse survey data about Transformational Adaptation, and an associated R package I'm developing to build new tools.
+*** install-tools-code
+#+name:install-tools
+#+begin_src R :session *R* :eval no
+################################################################
+# name:install-tools
+require(devtools)
+install_github("TransformSurveyTools", "ivanhanigan")
+#+end_src
 
 The structure of this document follows [[http://stackoverflow.com/a/1434424][Reichian LCFD approach]]. 
 * Functions
@@ -229,6 +237,14 @@ The Ritschard (2006) paper (with SPSS code) describes a complicated method that 
 - profile number
 
 I don't really get this, and haven't turned up many references to Ritschard since he wrote these.
+
+I really want to use the deviance as well as the misclassification error rate for measuring the descriptive power of the tree.
+Ripley's tree package is the only one I found to give me deviance for classification trees.
+
+The Ritschard papers suggest nice methods to test differences between nested trees ie testing the difference with the root node with a Chi-square statistic (equivalent of the usual method used in logistic regression).
+
+Is this method employed widely in analysing survey data?
+I haven't turned up many references to Ritschard since he wrote these.
 
 So let's start simple first.  The following code follows the simpler approach:
 - Take the difference in the deviance for the models (less complex model minus more complex model)
