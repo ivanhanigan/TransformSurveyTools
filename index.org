@@ -17,9 +17,9 @@ This is implemented in SPSS code. I'll try to develop R code to do these tests.
 
 First I'll get the data out of their paper and fit the tree in figure 1
 
-*** tree-deviance-code
+*** tree-data
 #+name:tree-deviance
-#+begin_src R :session *R* :tangle src/tree-deviance.r :eval no
+#+begin_src R :session *R* :tangle inst/doc/tree-data.r :eval no
   ################################################################
   # name:tree-deviance
   # func
@@ -73,7 +73,7 @@ First I'll get the data out of their paper and fit the tree in figure 1
 *** COMMENT cuts
 **** COMMENT DEPRECATED get-data-from-pdf-code
 #+name:get-data-from-pdf
-#+begin_src R :session *R* :tangle src/get-data-from-pdf.r :exports none :eval no
+#+begin_src R :session *R* :tangle no :exports none :eval no
   ################################################################
   # name:get-data-from-pdf
   # these data are in a table in the pdf but not that easy to copy and paste.
@@ -131,7 +131,7 @@ The figure in the paper can be checked against our results (and also the improve
 *** One row per case or using weights?
 Using the case weights like above is convenient especially when datasets are very large, but caused problems in model fitting for me (tree failed to compute a deviance when done this way but succeeded with a dataset expanded so the data.frame is transformed into one in which each row is an observation.
 #+name:reassurance-re-weights
-#+begin_src R :session *R* :tangle no :eval no
+#+begin_src R :session *R* :tangle inst/doc/tree-data2.r :eval no
   ################################################################
   # name:reassurance-re-weights
    
@@ -178,7 +178,7 @@ If we look at the reduction in deviance between the Null model and the fitted tr
 The attached papers suggest a method to test differences between nested trees ie testing the difference with the root node with a Chi-square statistic (equivalent of the usual method used in logistic regression).
 *** COMMENT reminder-of-method-in-logistic-regression-code
 #+name:reminder-of-method-in-logistic-regression
-#+begin_src R :session *R* :tangle src/reminder-of-method-in-logistic-regression.r :exports none :eval no
+#+begin_src R :session *R* :tangle no :exports none :eval no
   ################################################################
   # name:reminder-of-method-in-logistic-regression
   # rewritten from http://data.princeton.edu/r/glms.html
