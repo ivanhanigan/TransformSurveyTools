@@ -7,7 +7,7 @@
 <meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1"/>
 <meta name="title" content="Transformations Survey Tools "/>
 <meta name="generator" content="Org-mode"/>
-<meta name="generated" content="2013-09-27T00:46+1000"/>
+<meta name="generated" content="2013-09-27T21:33+1000"/>
 <meta name="author" content="Ivan Hanigan"/>
 <meta name="description" content=""/>
 <meta name="keywords" content=""/>
@@ -139,7 +139,12 @@ for the JavaScript code in this tag.
 </li>
 <li><a href="#sec-4">4 Clean</a>
 <ul>
-<li><a href="#sec-4-1">4.1 ReportTools</a></li>
+<li><a href="#sec-4-1">4.1 ReportTools: Descriptive Statistics</a>
+<ul>
+<li><a href="#sec-4-1-1">4.1.1 report-code</a></li>
+<li><a href="#sec-4-1-2">4.1.2 all variables table</a></li>
+</ul>
+</li>
 <li><a href="#sec-4-2">4.2 Recoding: Trichotomise</a></li>
 <li><a href="#sec-4-3">4.3 Reshape: To Long</a></li>
 <li><a href="#sec-4-4">4.4 Reshape: To Wide</a></li>
@@ -280,9 +285,86 @@ variable_labels <span style="color: #268bd2; font-weight: bold;">&lt;-</span> at
 </div>
 
 <div id="outline-container-4-1" class="outline-3">
-<h3 id="sec-4-1"><span class="section-number-3">4.1</span> ReportTools</h3>
+<h3 id="sec-4-1"><span class="section-number-3">4.1</span> ReportTools: Descriptive Statistics</h3>
 <div class="outline-text-3" id="text-4-1">
 
+<p>A really important aspect to analysing survey data is a table of descriptive statistics.  Luckily the reporttools package is here to help.  The result of the following code is a LaTeX report which you can see in the file 
+</p>
+</div>
+
+<div id="outline-container-4-1-1" class="outline-4">
+<h4 id="sec-4-1-1"><span class="section-number-4">4.1.1</span> report-code</h4>
+<div class="outline-text-4" id="text-4-1-1">
+
+
+
+
+<pre class="src src-R">system.file(file.path(<span style="color: #2aa198;">"doc"</span>, <span style="color: #2aa198;">"report.pdf"</span>), package = <span style="color: #2aa198;">"TransformSurveyTools"</span>)
+</pre>
+
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<colgroup><col class="left" />
+</colgroup>
+<tbody>
+<tr><td class="left">doc/report.pdf</td></tr>
+</tbody>
+</table>
+
+</div>
+
+</div>
+
+<div id="outline-container-4-1-2" class="outline-4">
+<h4 id="sec-4-1-2"><span class="section-number-4">4.1.2</span> all variables table</h4>
+<div class="outline-text-4" id="text-4-1-2">
+
+
+
+
+<pre class="src src-R"><span style="color: #586e75;">################################################################</span>
+<span style="color: #586e75;"># </span><span style="color: #586e75;">func</span>
+<span style="color: #859900; font-weight: bold;">if</span>(!<span style="color: #268bd2; font-weight: bold;">require</span>(reporttools)) install.packages(<span style="color: #2aa198;">"reporttools"</span>); <span style="color: #268bd2; font-weight: bold;">require</span>(reporttools)
+<span style="color: #586e75;"># </span><span style="color: #586e75;">load</span>
+fpath <span style="color: #268bd2; font-weight: bold;">&lt;-</span> system.file(file.path(<span style="color: #2aa198;">"extdata"</span>, <span style="color: #2aa198;">"civst_gend_sector_full.csv"</span>), package = <span style="color: #2aa198;">"TransformSurveyTools"</span>)
+analyte <span style="color: #268bd2; font-weight: bold;">&lt;-</span> read.csv(fpath)
+analyte$random <span style="color: #268bd2; font-weight: bold;">&lt;-</span> rnorm(nrow(analyte), 0 , 1)
+analyte$random2 <span style="color: #268bd2; font-weight: bold;">&lt;-</span> rnorm(nrow(analyte), 10 , 20)
+
+str(analyte)
+data_continuous <span style="color: #268bd2; font-weight: bold;">&lt;-</span> numeric(0) 
+<span style="color: #859900; font-weight: bold;">for</span>(i <span style="color: #859900; font-weight: bold;">in</span> 1:length(names(analyte)))
+  {
+    <span style="color: #859900; font-weight: bold;">if</span>(is.numeric(analyte[,i]))
+        {
+            data_continuous <span style="color: #268bd2; font-weight: bold;">&lt;-</span> c(data_continuous, i)
+        }
+  }
+<span style="color: #586e75;"># </span><span style="color: #586e75;">clean        </span>
+str(analyte[,data_continuous])
+str(analyte[,-data_continuous])
+<span style="color: #586e75;"># </span><span style="color: #586e75;">do</span>
+sink(<span style="color: #2aa198;">'inst/doc/tab4.tex'</span>)
+tableContinuous(vars = analyte[,data_continuous],
+                stats = c(<span style="color: #2aa198;">"n"</span>, <span style="color: #2aa198;">"min"</span>, <span style="color: #2aa198;">"mean"</span>, <span style="color: #2aa198;">"median"</span>,
+                  <span style="color: #2aa198;">"max"</span>, <span style="color: #2aa198;">"iqr"</span>, <span style="color: #2aa198;">"na"</span>),
+                cap = <span style="color: #2aa198;">"Table of continuous variables."</span>, lab = <span style="color: #2aa198;">"tab:table4"</span>,
+                caption.placement = <span style="color: #2aa198;">"top"</span>)
+sink()
+
+x.big <span style="color: #268bd2; font-weight: bold;">&lt;-</span> analyte[,-data_continuous]
+sink(<span style="color: #2aa198;">'inst/doc/tab5.tex'</span>)
+tableNominal(vars = x.big, cap = <span style="color: #2aa198;">"Table of nominal variables (Postcode excluded)"</span>,
+             vertical = <span style="color: #b58900;">FALSE</span>,
+             lab = <span style="color: #2aa198;">"tab:table5"</span>, longtable = <span style="color: #b58900;">TRUE</span>,
+             caption.placement = <span style="color: #2aa198;">"top"</span>)
+
+sink()
+
+</pre>
+
+
+
+</div>
 </div>
 
 </div>

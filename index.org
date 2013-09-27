@@ -59,7 +59,61 @@ require(partykit)
 #+end_src
 
 * Clean
-** ReportTools
+** ReportTools: Descriptive Statistics
+A really important aspect to analysing survey data is a table of descriptive statistics.  Luckily the reporttools package is here to help.  The result of the following code is a LaTeX report which you can see in the file 
+*** report-code
+#+name:report
+#+begin_src R :session *R* :eval yes
+system.file(file.path("doc", "report.pdf"), package = "TransformSurveyTools")
+#+end_src
+| doc/report.pdf |
+*** all variables table
+#+name:tableCode
+#+begin_src R :session *R* :tangle no :eval yes
+  ################################################################
+  # func
+  if(!require(reporttools)) install.packages("reporttools"); require(reporttools)
+  # load
+  fpath <- system.file(file.path("extdata", "civst_gend_sector_full.csv"), package = "TransformSurveyTools")
+  analyte <- read.csv(fpath)
+  analyte$random <- rnorm(nrow(analyte), 0 , 1)
+  analyte$random2 <- rnorm(nrow(analyte), 10 , 20)
+  
+  str(analyte)
+  data_continuous <- numeric(0) 
+  for(i in 1:length(names(analyte)))
+    {
+      if(is.numeric(analyte[,i]))
+          {
+              data_continuous <- c(data_continuous, i)
+          }
+    }
+  # clean        
+  str(analyte[,data_continuous])
+  str(analyte[,-data_continuous])
+  # do
+  sink('inst/doc/tab4.tex')
+  tableContinuous(vars = analyte[,data_continuous],
+                  stats = c("n", "min", "mean", "median",
+                    "max", "iqr", "na"),
+                  cap = "Table of continuous variables.", lab = "tab:table4",
+                  caption.placement = "top")
+  sink()
+  
+  x.big <- analyte[,-data_continuous]
+  sink('inst/doc/tab5.tex')
+  tableNominal(vars = x.big, cap = "Table of nominal variables (Postcode excluded)",
+               vertical = FALSE,
+               lab = "tab:table5", longtable = TRUE,
+               caption.placement = "top")
+  
+  sink()
+     
+#+end_src
+
+#+RESULTS: tableCode
+
+
 ** Recoding: Trichotomise
 ** Reshape: To Long
 ** Reshape: To Wide
