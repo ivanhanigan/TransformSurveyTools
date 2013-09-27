@@ -66,7 +66,9 @@ A really important aspect to analysing survey data is a table of descriptive sta
 #+begin_src R :session *R* :eval yes
 system.file(file.path("doc", "report.pdf"), package = "TransformSurveyTools")
 #+end_src
-| doc/report.pdf |
+[[http://ivanhanigan.github.io/TransformSurveyTools/inst/doc/report.pdf][doc/report.pdf]]
+
+
 *** all variables table
 #+name:tableCode
 #+begin_src R :session *R* :tangle no :eval yes
