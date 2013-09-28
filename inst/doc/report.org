@@ -9,7 +9,7 @@
 * Descriptive Statistics
 Summary statistics for the key variables we focus on are shown here.
 
-All continuous variables are shown in Table \ref{tab:table5} and all nominal variables are shown in Table \ref{tab:table4}.   
+All nominal variables are shown in Table \ref{tab:table5} and all continuous variables are shown in Table \ref{tab:table4}.   
 
 \input{tab5.tex}
 \input{tab4.tex}
