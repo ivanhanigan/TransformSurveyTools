@@ -75,12 +75,18 @@ system.file(file.path("doc", "report.pdf"), package = "TransformSurveyTools")
   ################################################################
   # func
   if(!require(reporttools)) install.packages("reporttools"); require(reporttools)
+  require(devtools)
+  install_github("TransformSurveyTools", "ivanhanigan")
+  require(TransformSurveyTools)
   # load
   fpath <- system.file(file.path("extdata", "civst_gend_sector_full.csv"), package = "TransformSurveyTools")
   analyte <- read.csv(fpath)
   analyte$random <- rnorm(nrow(analyte), 0 , 1)
-  analyte$random2 <- rnorm(nrow(analyte), 10 , 20)
-  
+  for(i in 1:75)
+    {
+      analyte[,ncol(analyte) + 1] <- rnorm(nrow(analyte), 10 , 20)    
+    }
+  names(analyte)
   str(analyte)
   data_continuous <- numeric(0) 
   for(i in 1:length(names(analyte)))
@@ -99,12 +105,14 @@ system.file(file.path("doc", "report.pdf"), package = "TransformSurveyTools")
                   stats = c("n", "min", "mean", "median",
                     "max", "iqr", "na"),
                   cap = "Table of continuous variables.", lab = "tab:table4",
-                  caption.placement = "top")
+                  caption.placement = "top",
+                  longtable = TRUE, add.to.row = list(pos = list(0), 
+                  command = "\\hline \\endhead "))
   sink()
   
   x.big <- analyte[,-data_continuous]
   sink('inst/doc/tab5.tex')
-  tableNominal(vars = x.big, cap = "Table of nominal variables (Postcode excluded)",
+  tableNominal(vars = x.big, cap = "Table of nominal variables",
                vertical = FALSE,
                lab = "tab:table5", longtable = TRUE,
                caption.placement = "top")
