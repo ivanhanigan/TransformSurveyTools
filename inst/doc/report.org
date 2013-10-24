@@ -1,0 +1,15 @@
+#+TITLE:Transformations Survey Tools 
+#+AUTHOR: Ivan Hanigan
+#+email: ivan.hanigan@anu.edu.au
+#+LaTeX_CLASS: article
+#+LaTeX_CLASS_OPTIONS: [a4paper]
+#+LATEX: \tableofcontents
+-----
+
+* Descriptive Statistics
+Summary statistics for the key variables we focus on are shown here.
+
+All nominal variables are shown in Table \ref{tab:table5} and all continuous variables are shown in Table \ref{tab:table4}.   
+
+\input{tab5.tex}
+\input{tab4.tex}

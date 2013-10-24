@@ -4,6 +4,7 @@ require(tree)
 require(devtools)
 install_github("TransformSurveyTools", "ivanhanigan")
 require(TransformSurveyTools)
+
 # load locally
 # fpath  <- "inst/extdata/civst_gend_sector_full.csv"
 # or via package
