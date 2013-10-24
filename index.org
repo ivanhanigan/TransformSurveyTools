@@ -34,12 +34,12 @@ require(foreign)
 
 #+name:main
 #+begin_src R :session *R* :tangle inst/doc/main.r :eval no
-################################################################
-require(tree)
-require(rpart)
-require(party) 
-require(partykit) 
-
+  ################################################################
+  require(tree)
+  require(rpart)
+  require(party) 
+  require(partykit) 
+  
 #+end_src
 
 * Load
