@@ -492,3 +492,97 @@ Under hypothesis that less complex (reduced) model is adequate, difference follo
 #+begin_src R :session *R* :tangle inst/doc/main.r :eval no
 source("tests/test-tree.chisq.r")
 #+end_src
+** using rules
+*** funcs for using rules
+#+name:using rules
+#+begin_src R :session *R* :tangle no :exports none :eval yes
+#### name:using rules ####
+# http://www.togaware.com/datamining/survivor/Convert_Tree.html
+list.rules.rpart <- function(model)
+{
+  if (!inherits(model, "rpart")) stop("Not a legitimate rpart tree")
+  #
+  # Get some information.
+  #
+  frm     <- model$frame
+  names   <- row.names(frm)
+  ylevels <- attr(model, "ylevels")
+  ds.size <- model$frame[1,]$n
+  #
+  # Print each leaf node as a rule.
+  #
+  for (i in 1:nrow(frm))
+  {
+    if (frm[i,1] == "<leaf>")
+    {
+      # The following [,5] is hardwired - needs work!
+      cat("\n")
+      cat(sprintf(" Rule number: %s ", names[i]))
+      cat(sprintf("[yval=%s cover=%d (%.0f%%) prob=%0.2f]\n",
+                  ylevels[frm[i,]$yval], frm[i,]$n,
+                  round(100*frm[i,]$n/ds.size), frm[i,]$yval2[,5]))
+      pth <- path.rpart(model, nodes=as.numeric(names[i]), print.it=FALSE)
+      cat(sprintf("   %s\n", unlist(pth)[-1]), sep="")
+    }
+  }
+}
+# hacked to allow subsetting of the data frame to look at the contents
+# of a terminal node
+list.rules.rpart2 <- function(
+  model=fit2
+  )
+{
+  if (!inherits(model, "rpart")) stop("Not a legitimate rpart tree")
+  #
+  # Get some information.
+  #
+  datname <- model$call["data"]
+  frm     <- model$frame
+  names   <- row.names(frm)
+  ylevels <- attr(model, "ylevels")
+  ds.size <- model$frame[1,]$n
+  #
+  # Print each leaf node as a rule.
+  #
+  for (i in 1:nrow(frm))
+  {
+    if (frm[i,1] == "<leaf>")
+    {
+      print(i)
+      # The following [,5] is hardwired - needs work!
+      cat("\n")
+      cat(sprintf(" Rule number: %s ", names[i]))
+      cat(sprintf("[yval=%s cover=%d (%.0f%%) prob=%0.2f]\n",
+                  ylevels[frm[i,]$yval], frm[i,]$n,
+                  round(100*frm[i,]$n/ds.size), frm[i,]$yval2[,5]))
+      pth <- path.rpart(model, nodes=as.numeric(names[i]), print.it=FALSE)
+      cat(sprintf("   %s\n", unlist(pth)[-1]), sep="")
+      txt <- paste(datname,"[",datname,"$",
+                   paste(unlist(pth)[-1], sep="", collapse = paste("\n & ",datname,"$", sep = ""))
+                   ,
+                   ",]", sep = "")
+      cat(txt)
+      df <- eval(
+        parse(text = txt)
+        )
+      cat("\n")
+      print(disentangle::data_dict(df, as.character(model$terms[[2]])))
+    }
+  }
+}
+
+#+end_src
+
+#+RESULTS: using
+
+*** COMMENT test using rules
+#+name:test using rules
+#+begin_src R :session *R* :tangle no :exports none :eval no
+  #### name:test using rules ####
+  fit2 <- rpart(Kyphosis ~ Age + Number + Start, data = kyphosis)
+  plot(fit2)
+  text(fit2)
+  list.rules.rpart(fit2)
+  list.rules.rpart2(fit2)
+#+end_src
+
