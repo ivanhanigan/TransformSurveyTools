@@ -586,3 +586,96 @@ list.rules.rpart2 <- function(
   list.rules.rpart2(fit2)
 #+end_src
 
+*** TODO funcs for hacking rules
+#+name:using rules
+#+begin_src R :session *R* :tangle no :exports none :eval yes
+  #### name:using rules ####
+  # http://www.togaware.com/datamining/survivor/Convert_Tree.html
+  rules2subset <- function(
+    rules = rulesdf
+    ,
+    datname = "dat"
+    ,
+    response = "cFMASSISTtffpuse"
+  )
+  {
+  #  if (!inherits(model, "rpart")) stop("Not a legitimate rpart tree")
+    #
+    # Get some information.
+    #
+   # frm     <- model$frame
+   # names   <- row.names(frm)
+   # ylevels <- attr(model, "ylevels")
+   # ds.size <- model$frame[1,]$n
+    #
+    # Print each leaf node as a rule.
+    #
+   for (i in 1:nrow(rulesdf))
+    {
+  #    i=1
+  #    if (frm[i,1] == "<leaf>")
+  #    {
+        # The following [,5] is hardwired - needs work!
+  #      cat("\n")
+        cat(sprintf(" Rule number: %s \n\n", rulesdf[i, 1]))
+  #      cat(sprintf("[yval=%s cover=%d (%.0f%%) prob=%0.2f]\n",
+  #                  ylevels[frm[i,]$yval], frm[i,]$n,
+  #                  round(100*frm[i,]$n/ds.size), frm[i,]$yval2[,5]))
+        rules <- rulesdf[i,-1]
+        rules <- rules[!is.na(rules)]
+        pth <- rules
+        cat(sprintf("   %s\n", unlist(pth)), sep="")
+        txt1 <- sprintf('attach(%s)', datname)
+        txt <- paste(datname,"[",
+                     paste(unlist(pth), sep="", collapse = paste("\n & ", sep = ""))
+                     ,
+                     ",]", sep = "")
+        
+        ## txt <- paste(datname,"[",datname,"$",
+        ##              paste(unlist(pth), sep="", collapse = paste("\n & ",datname,"$", sep = ""))
+        ##              ,
+        ##              ",]", sep = "")
+        txt2 <- sprintf('detach(%s)', datname)
+        txt3 <- paste("with(", datname,", ", txt, ")", sep = '')
+        #cat(txt3)
+        df <- eval(
+          parse(text = txt3)
+          )
+        #str(df)
+        cat("\n")
+        print(disentangle::data_dict(df, response))
+      }
+    }
+  }
+#+end_src
+*** COMMENT test
+#+name:test
+#+begin_src R :session *R* :tangle test.R :exports none :eval no
+  #### name:test ####
+  library(readxl)
+  rulesdf <- read_excel("/home/ivan_hanigan/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data Cleaning/CleaningIH/decision_tree_for_piping_logic2.xlsx")
+  rulesdf <- rulesdf[1:5,1:4]
+  rulesdf
+  dat[] <- lapply(dat, as.character)
+  
+  str(ds2)
+  attach(ds2)
+  ds2[PANEL == 'Online Panel'
+   & (cFMRassistmgefarm == 'Yes' | cFMRmanagefarm == 'Yes')
+   & cFMASSISTtffp == 'Yes',]
+  detach(ds2)
+#+end_src
+
+#+RESULTS: using
+
+*** COMMENT test using rules
+#+name:test using rules
+#+begin_src R :session *R* :tangle no :exports none :eval no
+  #### name:test using rules ####
+  fit2 <- rpart(Kyphosis ~ Age + Number + Start, data = kyphosis)
+  plot(fit2)
+  text(fit2)
+  list.rules.rpart(fit2)
+  list.rules.rpart2(fit2)
+#+end_src
+
