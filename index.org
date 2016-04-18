@@ -585,8 +585,31 @@ list.rules.rpart2 <- function(
   list.rules.rpart(fit2)
   list.rules.rpart2(fit2)
 #+end_src
+*** set up for rules2subset func
+#+name:test
+#+begin_src R :session *R* :tangle test.R :exports none :eval yes
+  #### name:test ####
+  library(readxl)
+  rulesdf <- read_excel("/home/ivan_hanigan/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data Cleaning/CleaningIH/decision_tree_for_piping_logic3.xlsx")
+  rulesdf <- rulesdf[1:6,1:4]
+  rulesdf
+  #dat[] <- lapply(dat, as.character)
+  
+  #str(dat)
+  
+#+end_src
 
-*** TODO funcs for hacking rules
+#+RESULTS: test
+| Rule 1 | PANEL == 'Online Panel' | cNATDISdroughthappen12mo == 'Yes' | (cFMRassistmgefarm == 'Yes'                            | cFMRmanagefarm == 'Yes') |
+| Rule 2 | PANEL == 'Online Panel' | cNATDISdroughthappen12mo == 'Yes' | (cFMRassistmgefarm != 'Yes' & cFMRmanagefarm != 'Yes') |                          |
+| Rule 3 | PANEL == 'Online Panel' | cNATDISdroughthappen12mo != 'Yes' | nil                                                    |                          |
+| Rule 4 | PANEL != 'Online Panel' | PANEL != 'Community Survey'       | cNATDISdroughthappen12mo == 'Yes'                      |                          |
+| Rule 5 | PANEL != 'Online Panel' | PANEL != 'Community Survey'       | cNATDISdroughthappen12mo != 'Yes'                      |                          |
+| Rule 6 | PANEL != 'Online Panel' | PANEL == 'Community Survey'       | nil                                                    |                          |
+
+#+RESULTS: using
+
+*** rules2subset func
 #+name:using rules
 #+begin_src R :session *R* :tangle no :exports none :eval yes
   #### name:using rules ####
@@ -596,7 +619,9 @@ list.rules.rpart2 <- function(
     ,
     datname = "dat"
     ,
-    response = "cFMASSISTtffpuse"
+    response = "cNATDISdroughtCHANGEDofffrmwrk"
+    ,
+    show_r = F
   )
   {
   #  if (!inherits(model, "rpart")) stop("Not a legitimate rpart tree")
@@ -610,6 +635,8 @@ list.rules.rpart2 <- function(
     #
     # Print each leaf node as a rule.
     #
+    totals <- as.data.frame(matrix(NA, ncol = 3, nrow = 0))
+    names(totals) <- c("Rule", "Subtotal", "RuleText")
    for (i in 1:nrow(rulesdf))
     {
   #    i=1
@@ -617,7 +644,7 @@ list.rules.rpart2 <- function(
   #    {
         # The following [,5] is hardwired - needs work!
   #      cat("\n")
-        cat(sprintf(" Rule number: %s \n\n", rulesdf[i, 1]))
+        cat(sprintf("--------\n\n Rule number: %s \n\n", rulesdf[i, 1]))
   #      cat(sprintf("[yval=%s cover=%d (%.0f%%) prob=%0.2f]\n",
   #                  ylevels[frm[i,]$yval], frm[i,]$n,
   #                  round(100*frm[i,]$n/ds.size), frm[i,]$yval2[,5]))
@@ -637,36 +664,29 @@ list.rules.rpart2 <- function(
         ##              ",]", sep = "")
         txt2 <- sprintf('detach(%s)', datname)
         txt3 <- paste("with(", datname,", ", txt, ")", sep = '')
-        #cat(txt3)
+        cat("\n")      
+        if(show_r){
+          cat(txt3)
+          cat("\n\n")
+        }
         df <- eval(
           parse(text = txt3)
           )
         #str(df)
-        cat("\n")
-        print(disentangle::data_dict(df, response))
+  
+        dd <- disentangle::data_dict(df, response)
+        print(dd)
+        cat(sprintf("Subtotal: %s\n", sum(dd$Count)))
+  subtotal <- data.frame(Rule = rulesdf[i,1], Subtotal = sum(dd$Count),
+                         RuleText = paste(unlist(pth), sep="", collapse = paste(" & ", sep = ""))
+                         )
+      totals <- rbind(totals, subtotal)
       }
-    }
+    sum(totals$Subtotal)
+    print(totals)
+    return(totals)
   }
 #+end_src
-*** COMMENT test
-#+name:test
-#+begin_src R :session *R* :tangle test.R :exports none :eval no
-  #### name:test ####
-  library(readxl)
-  rulesdf <- read_excel("/home/ivan_hanigan/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data Cleaning/CleaningIH/decision_tree_for_piping_logic2.xlsx")
-  rulesdf <- rulesdf[1:5,1:4]
-  rulesdf
-  dat[] <- lapply(dat, as.character)
-  
-  str(ds2)
-  attach(ds2)
-  ds2[PANEL == 'Online Panel'
-   & (cFMRassistmgefarm == 'Yes' | cFMRmanagefarm == 'Yes')
-   & cFMASSISTtffp == 'Yes',]
-  detach(ds2)
-#+end_src
-
-#+RESULTS: using
 
 *** COMMENT test using rules
 #+name:test using rules
