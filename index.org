@@ -611,30 +611,29 @@ list.rules.rpart2 <- function(
 
 *** rules2subset func
 #+name:using rules
-#+begin_src R :session *R* :tangle no :exports none :eval yes
+#+begin_src R :session *R* :tangle R/rules2subset.R :exports none :eval yes
   #### name:using rules ####
   # http://www.togaware.com/datamining/survivor/Convert_Tree.html
   rules2subset <- function(
-    rules = rulesdf
+    rulesdf = rulesdf
     ,
     datname = "dat"
     ,
     response = "cNATDISdroughtCHANGEDofffrmwrk"
     ,
     show_r = F
+    , 
+    expected_values = NULL
   )
   {
-  #  if (!inherits(model, "rpart")) stop("Not a legitimate rpart tree")
-    #
-    # Get some information.
-    #
-   # frm     <- model$frame
-   # names   <- row.names(frm)
-   # ylevels <- attr(model, "ylevels")
-   # ds.size <- model$frame[1,]$n
-    #
-    # Print each leaf node as a rule.
-    #
+    expected_values = 'expected_value'
+    if (!is.null(expected_values)) {
+      expectations <- rulesdf[,which(names(rulesdf) == expected_values)]
+      rulesdf <- rulesdf[,-which(names(rulesdf) == expected_values)]
+      names(rulesdf)
+  
+    }
+    
     totals <- as.data.frame(matrix(NA, ncol = 3, nrow = 0))
     names(totals) <- c("Rule", "Subtotal", "RuleText")
    for (i in 1:nrow(rulesdf))
@@ -652,6 +651,7 @@ list.rules.rpart2 <- function(
         rules <- rules[!is.na(rules)]
         pth <- rules
         cat(sprintf("   %s\n", unlist(pth)), sep="")
+        cat(sprintf("Expected values: %s", expectations[i]))
         txt1 <- sprintf('attach(%s)', datname)
         txt <- paste(datname,"[",
                      paste(unlist(pth), sep="", collapse = paste("\n & ", sep = ""))
@@ -680,9 +680,14 @@ list.rules.rpart2 <- function(
   subtotal <- data.frame(Rule = rulesdf[i,1], Subtotal = sum(dd$Count),
                          RuleText = paste(unlist(pth), sep="", collapse = paste(" & ", sep = ""))
                          )
+  #subtotal
+  
       totals <- rbind(totals, subtotal)
       }
-    sum(totals$Subtotal)
+  grandtotal <- data.frame(Rule = 'GrandTotal', Subtotal =   sum(totals$Subtotal),
+                         RuleText = ''
+                         )
+    totals <- rbind(totals, grandtotal)
     print(totals)
     return(totals)
   }
