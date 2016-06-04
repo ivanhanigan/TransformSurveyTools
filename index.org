@@ -20,6 +20,21 @@
 #+end_src
 
 The structure of this document follows [[http://stackoverflow.com/a/1434424][Reichian LCFD approach]]. 
+* General methods
+** Understanding a survey
+- A flow chart of how a user gains understanding of surveys
+- What to look for in a user guide.
+
+*** Flow chart 
+- Step 1: Identify
+  + the population, sample and variables
+  + panels / waves? comparability over time
+  + margin of error or anything relating to uncertainty (population and sample sizes)
+  + bias: non-response bias, sampling-frame bias and self-reporting bias
+  + weighting
+- Step 2: Access
+  - 
+
 * Functions
 ** foreign
 
@@ -703,4 +718,536 @@ list.rules.rpart2 <- function(
   list.rules.rpart(fit2)
   list.rules.rpart2(fit2)
 #+end_src
+
+** Confidence intervals around a proportion
+*** COMMENT adjustedWald
+#+name:adjustedWald
+#+begin_src R :session *R* :tangle R/adjustedWald.R :exports none :eval no
+  # adjusted wald from http://www.measuringux.com/adjustedwald.htm
+  z <- 1.96
+  padj <- (n*p + (z^2)/2)/(n + z^2)  
+  nadj <- n + z^2  
+  # And finally, the calculation of the confidence interval:
+  d2$ci  <- z * sqrt(padj*(1 - padj)/nadj)  
+  d2$uci  <- padj + z * sqrt(padj*(1 - padj)/nadj)  
+  d2$lci  <- padj - z * sqrt(padj*(1 - padj)/nadj)
+
+#+end_src
+** crosstabulating a list of variables (weighted data) by various dimensions and returning unweighted n, and CI
+*** COMMENT feed
+#+name:feed
+#+begin_src R :session *R* :tangle no :exports none :eval yes
+#### name:feed ####
+indat<-read.csv("inst/extdata/crosstab_weighted_survey.csv")
+indat
+#+end_src
+
+#+RESULTS: feed
+| 0.1 survey data    | 2015 RWS data set_Masterfile_25May2016        | master       | check the version, update if desired | ~/Private/Regional Wellbeing Survey/RWSurvey 2015/RWS Data/MASTER                                           |
+| 0.2 farmer type    | Farmer type coding.csv                        | farmertype   |                                      | ~/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data/RWS Data Analysis/Farmer type coding             |
+| 0.3 weights        | TestOutweightsDataset_NoEdu_Cut.csv           | weights      |                                      | ~/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data/RWS Data Analysis/Weighting process/data_derived |
+| 0.4 load metdata   | 2015 RWS Metadata.xlsx                        | metadata     |                                      | ~/Private/Regional Wellbeing Survey/RWSurvey 2015/RWS Data/MASTER                                           |
+| 0.5 regions        | ReportingRegions.shp                          | regions      |                                      | ~/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data/RWS Data Analysis/ReportingRegions               |
+| 0.6 input data     | master, farmertype, weights, metadata,regions | indat        |                                      |                                                                                                             |
+| 1.1 setup section  |                                               | sectionlabel |                                      |                                                                                                             |
+| 1.2 list the vars  | metadata                                      | mainvars     |                                      |                                                                                                             |
+| 1.3 select the dim | dimensions                                    | dimension    |                                      |                                                                                                             |
+| 1.4 set the scope  | sectionlabel,mainvars,dimension               | scope        |                                      |                                                                                                             |
+| 1.5 analysis data  | scope, indat                                  | indat2       |                                      |                                                                                                             |
+
+*** COMMENT show
+#+name:show
+#+begin_src R :session *R* :tangle no :exports none :eval yes
+  #### name:show ####
+  require(disentangle)
+  require(stringr)
+  indat<-read.csv("inst/extdata/crosstab_weighted_survey.csv", as.is = T, strip.white = T)
+  indat[,1:3]
+  str(indat)
+  nodes <- newnode(indat, "step", "inputs", "outputs")
+  #DiagrammeR::grViz(nodes)
+  sink("file_name.dot")
+  cat(nodes)
+  sink()# If graphviz is installed and on linux
+  system("dot -Tpdf file_name.dot -o file_name.pdf")
+  #browseURL("file_name.pdf")
+#+end_src
+*** COMMENT Step 0 load libraries
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
+  #### name:init ####
+  library(sqldf)  
+  library(survey)
+  library(readxl)
+  library(car)
+#+end_src
+
+#+RESULTS:
+| car         |
+| readxl      |
+| survey      |
+| grid        |
+| sqldf       |
+| RSQLite     |
+| DBI         |
+| gsubfn      |
+| proto       |
+| stringr     |
+| disentangle |
+| stats       |
+| graphics    |
+| grDevices   |
+| utils       |
+| datasets    |
+| methods     |
+| base        |
+
+*** COMMENT Step 0 load master
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
+  
+  projdir <- "/home/ivan_hanigan/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Reports/Drought and extreme weather"
+  
+  indir_master <- "/home/ivan_hanigan/Private/Regional Wellbeing Survey/RWSurvey 2015/RWS Data/MASTER"
+  #setwd(indir_master)
+  #dir()
+  
+  infile_master <- "2015 RWS data set_Masterfile_25May2016.csv"
+  
+  master <- read.csv(file.path(indir_master, infile_master))
+  nrow(master)
+  # 13303
+  ncol(master)
+  # 1032
+#+end_src
+*** COMMENT Step 0 load metadata
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
+  dir(indir_master)
+  # first read told me that there are 9 cols and it failed to identify
+  # the type as text so set this
+  metadata  <- read_excel(file.path(indir_master, "2015 RWS Metadata_25May2016.xlsx"),
+                          col_types = rep("text", 9))
+  str(metadata)
+  names(as.data.frame(metadata))
+  metadata$sortorder <- row.names(metadata)
+  
+  
+#+end_src
+*** COMMENT Step 0 load farmer type notes
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval no
+  
+  ## -    Notfarmer1DrylandFarmer2Irrigator3UnspecFmr4: This variable is my best estimate of whether 
+  ## a respondent was (1) Not a farmer, (2) Dryland farmer, (3) Irrigator or (4) Farmer unspecified. It 
+  ## has been produced based not only on the I am a dryland farmer and I irrigate all or part of my 
+  ## land variable, but also includes inferred values for around 400 of the farmers who did not 
+  ## answer those questions, based on (i) what they produce on the farm, (ii) whether they answered 
+  ## later irrigation questions in a way suggesting they are an irrigator, and (iii) their geographic 
+  ## location (there is no irrigation in some districts, which allowed me to infer the person was a 
+  ## dryland farmer)
+  ## -    FarmerTypeSimple: This variable is based on what a farmer described as their most important 
+  ## farm business activity AND their major farming activities. Data have been coded to the most 
+  ## common combinations. I am currently writing a full metadata entry for this variable as the logic 
+  ## used to classify farmers who did multiple activities is complex. 
+#+end_src
+*** COMMENT Step 0 load farmer type
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
+  indir_farmers  <- "~/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data/RWS Data Analysis/Farmer type coding"
+  infile_farmers <- "Farmer type coding.csv"
+  dat_farmers <- read.csv(file.path(indir_farmers, infile_farmers))
+  nrow(dat_farmers)
+  #13304
+  ncol(dat_farmers)
+  #75
+  names(dat_farmers)
+  farmers <- dat_farmers[,c("cSURVID", "Notfarmer1DrylandFarmer2Irrigator3UnspecFmr4",
+                                "FarmerTypeSimple")]
+  head(farmers)
+#+end_src
+*** COMMENT Step 0 load weights
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
+  
+  indir_wts <- "~/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data/RWS Data Analysis/Weighting process/data_derived"
+  
+  dir(indir_wts)
+  infile_wts  <- "TestOutweightsDataset_NoEdu_Cut.csv"
+  
+  weights <- read.csv(file.path(indir_wts, infile_wts))
+  str(weights)
+  weight <- "GReg_Weight_NoEdu_Cut"
+  wtvar <- c("cSURVID", weight)
+  weights <- weights[,wtvar]
+  head(weights)
+  dim(weights)
+  # [1] 13304     2
+  
+#+end_src
+*** COMMENT Step 0 load merge
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
+  dat  <- merge(master, farmers)
+  dat  <- merge(dat, weights)
+  #str(dat[1:4])
+  
+  
+#+end_src
+
+
+*** COMMENT Step 1 define scope
+#+begin_src R :session *R* :tangle no :exports none :eval yes
+  flist <- dir("/home/ivan_hanigan/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Reports/Drought and extreme weather/figures_and_tables")
+  flist <- strsplit(flist, "\\.")
+  flist2 <- do.call(rbind, flist)
+  head(flist2)
+  names(table(flist2[,1]))
+#+end_src
+
+#+RESULTS:
+| drought_ewe                                                            |
+| drought_ewe_AFFECTED                                                   |
+| drought_ewe_AFFECTEDpers                                               |
+| drought_ewe_AFFECTED_the_following                                     |
+| drought_ewe_AFFECTED_the_following_gender                              |
+| drought_ewe_AFFECTED_the_following_ReportingRegions                    |
+| drought_ewe_AFFECTED_wide                                              |
+| drought_ewe_age                                                        |
+| drought_ewe_by_ReportingRegion                                         |
+| drought_ewe_by_ReportingRegion_cNATDISbushfirehappen                   |
+| drought_ewe_by_ReportingRegion_cNATDIScoldsnaphappen                   |
+| drought_ewe_by_ReportingRegion_cNATDISdroughthappen12mo                |
+| drought_ewe_by_ReportingRegion_cNATDISfloodhappen                      |
+| drought_ewe_by_ReportingRegion_cNATDISheatwavehappen                   |
+| drought_ewe_by_ReportingRegion_cNATDISseverestormcyclonehappen         |
+| drought_ewe_by_ReportingRegion_farmers                                 |
+| drought_ewe_by_ReportingRegion_farmers_cNATDISbushfirehappen           |
+| drought_ewe_by_ReportingRegion_farmers_cNATDIScoldsnaphappen           |
+| drought_ewe_by_ReportingRegion_farmers_cNATDISdroughthappen12mo        |
+| drought_ewe_by_ReportingRegion_farmers_cNATDISfloodhappen              |
+| drought_ewe_by_ReportingRegion_farmers_cNATDISheatwavehappen           |
+| drought_ewe_by_ReportingRegion_farmers_cNATDISseverestormcyclonehappen |
+| drought_ewe_cFDlossprofit                                              |
+| drought_ewe_CHANGED_the_following                                      |
+| drought_ewe_CHANGED_the_following_Australia                            |
+| drought_ewe_CHANGED_the_following_gender                               |
+| drought_ewe_CHANGED_the_following_ReportingRegions                     |
+| drought_ewe_farmers                                                    |
+| drought_ewe_farmers_ste                                                |
+| drought_ewe_farmer_type                                                |
+| drought_ewe_farmer_type_and_profitability                              |
+| drought_ewe_FarmerTypeSimple                                           |
+| drought_ewe_gender                                                     |
+| drought_ewe_gender_age                                                 |
+| drought_ewe_gender_age_notfarmer_farmer                                |
+| drought_ewe_gender_farmer_type_and_profitability                       |
+| drought_ewe_Notfarmer1DrylandFarmer2Irrigator3                         |
+| drought_ewe_ste                                                        |
+| DroughtMaps                                                            |
+| DroughtMapsBOM                                                         |
+| drought_personal_life                                                  |
+| farm_business_planning                                                 |
+| map_BOM_vs_cNATDISdrought                                              |
+| map_cNATDISdroughthappen12mo                                           |
+| map_cNATDISdroughthappen12mo_farmers                                   |
+| map_DroughtMapsBOM                                                     |
+| qc_cNATDISdroughtCHANGEDdesirefarm_wt_uwt                              |
+| template                                                               |
+| template_drought_ewe_groups                                            |
+| versions                                                               |
+*** COMMENT Step 1.0 load report_sections
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_define_scope.R :exports none :eval yes
+  report_sections <- c("drought_ewe",                                                            
+  "drought_ewe_AFFECTED",                                                  
+  "drought_ewe_AFFECTED_the_following",                                     
+  "drought_ewe_CHANGED_the_following",                                      
+  "drought_ewe_farmer_type_and_profitability",                              
+  "map_cNATDISdroughthappen12mo")                                           
+  
+  
+   
+#+end_src
+
+*** COMMENT Step 2 init
+#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
+  #### Load
+  source("inst/doc/explore_RWS_load.R")
+  source("inst/doc/explore_RWS_define_scope.R")
+#+end_src
+*** COMMENT Step 2 initialise variables
+#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
+  
+  ls()
+  report_sections
+  sectionlabel <- "drought_ewe_AFFECTED_the_following"
+  
+  mainvars <- c("cNATDISdrought12moAFFECTpers",
+  "cNATDISdrought12moAFFECTjobbus",
+  "cNATDISdroughtAFFECThshld",
+  "cNATDISdroughtAFFECTcommunity")
+  
+
+#+end_src
+
+#+RESULTS:
+| cNATDISdrought12moAFFECTpers   |
+| cNATDISdrought12moAFFECTjobbus |
+| cNATDISdroughtAFFECThshld      |
+| cNATDISdroughtAFFECTcommunity  |
+
+*** TODO Step 2 dimension
+#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
+  dimension  <- "cREPORTINGREGIONS"    
+  #### make new dimension?
+  data.frame(table(dat[,dimension]))
+  #dat$SDgender2 <- recode(dat$SDgender,
+  #  recodes = "'Female     '='1.Female';'Male'='2.Male';")
+  #dimension  <- "cREPORTINGREGIONS2"
+  #dat$SDgender2 <- gsub(" ", "", dat$SDgender)
+  #data.frame(table(dat[,dimension]))
+  
+#+end_src
+*** COMMENT Step 2 mainvars
+#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
+  
+  mainvars_df <- data.frame(var = mainvars)
+  mainvars_df
+  mainvars_df <- merge(mainvars_df, metadata, by.x = "var", by.y = "Variable name")
+  nrow(mainvars_df)
+  names(mainvars_df)
+  
+  mainvars_df <-  mainvars_df[, c('sortorder', 'var',
+                  "Item stem - exact wording seen by respondents",
+                  "Item - exact wording seen by respondent OR description of variable",
+                  "Piping or display logic")]
+  
+  mainvars_df <- mainvars_df[order(mainvars_df$sortorder),]
+  mainvars_df[,c(1:2,4)]
+#+end_src
+*** COMMENT Step 2 go function xtab_RWS_by_dim
+#+begin_src R :session *R* :tangle R/xtab_RWS_by_dim.R :exports none :eval yes
+  xtab_RWS_by_dim <- function(
+    dat = dat
+    ,
+    pid = "cSURVID"
+    ,
+    mainvar = "cNATDISdroughtAFFECTcommunity" 
+    ,
+    dimension = "cREPORTINGREGIONS"
+    ,
+    weights = "GReg_Weight_NoEdu_Cut"
+    ,
+    trichotomise = TRUE
+    ,
+    overall = TRUE
+    ,
+    extra_exclusions_mainvar = NULL # i.e. -88 N/A along with standard -999
+    ,
+    extra_exclusions_dimension = "''" #NULL # i.e. '' as well as standard -777
+                                      # and -999
+    ){
+  invar <- c(pid, dimension, mainvar, weights)
+  matrix(invar)
+  
+  data.frame(table(dat[,dimension]))
+  if(!is.null(extra_exclusions_dimension)){
+    xtra <- paste("& dat[,dimension] != ", extra_exclusions_dimension, sep = "")
+  } else {
+    xtra <- ""
+  }
+  txt <- paste("datin <- dat[             
+               dat[,dimension] != '-999' &
+               dat[,dimension] != '-777'              
+               ",xtra,"
+               , invar
+               ]", sep ="")
+  cat(txt)
+  eval(parse(text=txt))  
+  str(datin)
+  
+  datin[,dimension] <- factor(datin[,dimension])
+  data.frame(table(datin[,dimension]))
+    
+  
+  mainvar
+  data.frame(table(datin[,mainvar]))  
+  #head(datin)
+  #str(datin)
+  #summary(datin)
+  if(!is.null(extra_exclusions_mainvar)){
+    xtra <- paste("& datin[,mainvar] != ", extra_exclusions_mainvar, sep = "")
+  } else {
+    xtra <- ""
+  }
+  txt <- paste("datin <- datin[             
+               datin[,mainvar] != '-999' &
+               datin[,mainvar] != '-777'              
+               ",xtra,"
+               , 
+               ]", sep ="")
+  cat(txt)
+  eval(parse(text=txt))  
+  str(datin)
+  
+  datin[,mainvar] <- factor(datin[,mainvar])
+  data.frame(table(datin[,mainvar]))
+  
+  #outcols <-
+  #summa_out <- matrix(NA, nrow = 0, ncol = outcols)
+  
+  if(trichotomise){
+  #### recode the mainvar  
+  mainvar2  <- paste(mainvar, "2", sep = "")
+  # TODO how to include/exclude extra like N/A?
+  #if net 2 pos
+  txt0 <- paste("datin$",mainvar2," <- car::recode(datin$",mainvar,", recodes = \"0='0.No impact'; 1:3 = '1.Negative impact'; 4 = '2.Neither negative or positive'; 5:7 = '3.Positive impact'; -99 = '4.Dont know'\")",
+                sep = "")
+  
+  #if reduced - increased
+  #  txt0 <- paste("datin$",mainvar2," <- recode(datin$",mainvar,", recodes = \"1:3 = '1.Reduced'; 4 = '2.Neither reduced or increased'; 5:7 = '3.Increased'; -99 = '4.Dont know'\")",
+  #                sep = "")
+  # if disagree-agree
+  
+  
+  cat(txt0)
+  eval(parse(text=txt0))
+  datin[,mainvar2]  <- factor(datin[,mainvar2])
+  #table(datin[,c(mainvar2, mainvar)])
+  }
+  
+  #head(datin)
+  #nrow(datin)
+  # 6558
+  #head(datin[,1:4])
+  
+  
+  # unweighted n
+  n <- table(datin[,dimension])
+  n
+  #dat_wt <- svydesign(ids = ~Notfarmer1DrylandFarmer2Irrigator3, data
+  #= datin, weights = datin$GReg_Weight_NoEdu_Cut)
+  txt1 <- paste("dat_wt <- svydesign(ids = ~",mainvar2,", data = datin, weights = datin$",weights,")", sep = "")
+  txt1
+  eval(parse(text=txt1))    
+  summary(dat_wt)
+  str(dat_wt)
+  
+  txt <- paste("summa <- cbind('",mainvar2,"', '",dimension,"', t(prop.table(svytable(~",mainvar2,"+",dimension,", design = dat_wt),2)), n)", sep = '')
+  txt
+  #qc <- t(prop.table(svytable(~cNATDISdroughthappen12mo+Notfarmer1DrylandFarmer2Irrigator3, design = dat_wt),2))
+  #qc
+  #cbind(qc*100,qc[,1]+qc[,2])
+  eval(parse(text=txt))
+  summa
+  ## summa <- c(mainvar2, table(datin[,mainvar])/n, n)
+  as.data.frame(summa)
+  summa
+  summa  <- cbind(summa, row.names(summa))
+  ##   str(summa)
+  #summa_out <- summa
+  
+  ## }
+  #summa
+  #head(summa)
+  # TODO modify for number of cols
+  d2  <- apply(summa[,3:8], 2, as.numeric)
+  head(d2)
+  d2  <- data.frame(summa[,1:2], round(d2, 2))
+  #names(d2)  <- c("variable", "dimension", "No", "Yes", "n")
+  d2
+  nc <- ncol(summa)
+  d2  <-  cbind(summa[,nc], d2)
+  names(d2)  <- c("state", "variable", "dimension", names(d2)[4:nc])
+  row.names(d2) <- NULL
+  ## d3  <- data.frame(variable = d2$variable, Disagree = rowSums(d2[,c(2:4)]),
+  ##                   Neither_agree_or_disagree = d2[,5],
+  ##                   Agree = rowSums(d2[,6:8])
+  ##                   )
+  ## d3
+  ## d2 <- merge(d2, d3)  
+  #d2 <- merge(mainvars_df, d2, by.x = "var", by.y = "variable")
+  
+  ## d2  <- sqldf("select *
+  ## from d2
+  ## where Yes > 0
+  ## order by var, state")
+  ## d2  
+  ## #names(d2) <- gsub("Neither_agree_or_disagree", "Neither agree/disagree", names(d2))
+  ## str(d2)
+  ## paste(names(d2), sep = "", collapse = "', '")
+  ## d2 <- d2[,c('var', 'state', 'dimension', 'sortorder', 'Item stem - exact wording seen by respondents', 'Item - exact wording seen by respondent OR description of variable', 'No', 'Yes', 'n', 'Piping or display logic')]
+  ## d2[,2] <- paste(d2[,2], " (n=", d2$n, ")", sep = "")
+  
+  # adjusted wald from http://www.measuringux.com/adjustedwald.htm
+  ## z <- 2
+  ## # rather than 1.96
+  ## padj <- (d2$n*d2$Yes + (z^2)/2)/(d2$n + z^2)
+  
+  ## nadj <- d2$n + z^2
+  
+  ## # And finally, the calculation of the confidence interval:
+  
+  ## d2$ci  <- z * sqrt(padj*(1 - padj)/nadj)  
+  # we will use this +/- on the proportion (not the padj as recommended, because the asymmetry 
+  # might look odd to our audience)
+  return(d2)
+  }
+#+end_src
+*** COMMENT Step 2 go 
+#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
+  source("R/xtab_RWS_by_dim.R")
+  mainvars
+  dimension
+  ########################################################################################3
+  
+  d2out <- xtab_RWS_by_dim(
+    dat = dat
+    ,
+    pid = "cSURVID"
+    ,
+    mainvar = "cNATDISdroughtAFFECTcommunity" 
+    ,
+    dimension = "FarmerTypeSimple"
+    ,
+    weights = "GReg_Weight_NoEdu_Cut"
+    ,
+    trichotomise = TRUE
+    ,
+    overall = TRUE
+    ,
+    extra_exclusions_mainvar = NULL 
+    ,
+    extra_exclusions_dimension = "''" 
+    )
+  
+  d2out
+  
+  ## write.csv(d2,
+  ##           sprintf("figures_and_tables/%s.csv", sectionlabel)
+  ##           , row.names=F)
+  ## dir()
+  ## getwd()
+  
+  ## for(i in 1:length(mainvars)){
+  ## #  mainvars
+  ## #i=1
+  ##   mainvar  <- mainvars[i]
+  ## print(mainvar)
+  ## d3out <- d2[d2$var == mainvar,]
+  ## write.csv(d3out,
+  ##           sprintf("figures_and_tables/%s_%s.csv", sectionlabel, mainvar)
+  ##           , row.names=F)
+  
+  ## }
+  ## names(d2)
+  ## table(d2[,c("state","levels")])
+  ## widen  <- d2[,c("var", "levels", "Freq")]
+  ## widen
+  
+  ## library(reshape)
+  ## wider  <- cast(widen, var ~ levels)
+  ## wider
+  
+  ## write.csv(wider,
+  ##           sprintf("figures_and_tables/%s_wide.csv", sectionlabel)
+  ##           , row.names=F)
+  
+#+end_src
+
+#+RESULTS:
+: /home/ivan_hanigan/Dropbox/projects_ceraph_transfers
 
