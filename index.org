@@ -139,7 +139,23 @@ system.file(file.path("doc", "report.pdf"), package = "TransformSurveyTools")
 #+RESULTS: tableCode
 
 
-** Recoding: Trichotomise
+** TODO Recoding: collapse into smaller groups (e.g. Trichotomise to low, med, high)
+https://www.isixsigma.com/topic/margin-of-errorci-for-ordinal-data/#post-110267
+What some consultants in marketing research do is to collapse the
+categories and then build confidence intervals around these
+categories. For example: they often combine 7/6, 5/4 and 1/2/3 and
+construct the interval around those three categories. While this
+defeats the original purpose of the Likert scale (approximating an
+interval scale) it has the advantage of being easy to comprehend by
+management. You can then run proportion difference tests on each of
+the three categories over time. Consultants typically don’t even
+adjust the alpha level for the fact that now you are running three
+tests instead of 1 test. Also, many executives care more about your
+top two and bottom three categories (on a 7-point Likert scale) than
+anything that is in the middle. This approach is only used when you
+have at least 7 categories. For a 10-point Likert scale the groupings
+are: 1/2/3/4, 5/6, 7/8, 9/10.
+
 ** Reshape: To Long
 ** Reshape: To Wide
 ** Summarise
@@ -733,7 +749,7 @@ list.rules.rpart2 <- function(
   d2$lci  <- padj - z * sqrt(padj*(1 - padj)/nadj)
 
 #+end_src
-** crosstabulating a list of variables (weighted data) by various dimensions and returning unweighted n, and CI
+** crosstabulating a list of variables (weighted data) by various dimensions and returning unweighted n (and CI for nominal data)
 *** COMMENT feed
 #+name:feed
 #+begin_src R :session *R* :tangle no :exports none :eval yes
@@ -772,13 +788,15 @@ indat
   system("dot -Tpdf file_name.dot -o file_name.pdf")
   #browseURL("file_name.pdf")
 #+end_src
-*** COMMENT Step 0 load libraries
+*** step 0 funcs and load
+**** COMMENT Step 0 load libraries
 #+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
   #### name:init ####
   library(sqldf)  
   library(survey)
   library(readxl)
   library(car)
+  library(data.table)
 #+end_src
 
 #+RESULTS:
@@ -801,7 +819,7 @@ indat
 | methods     |
 | base        |
 
-*** COMMENT Step 0 load master
+**** COMMENT Step 0 load master
 #+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
   
   projdir <- "/home/ivan_hanigan/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Reports/Drought and extreme weather"
@@ -818,7 +836,7 @@ indat
   ncol(master)
   # 1032
 #+end_src
-*** COMMENT Step 0 load metadata
+**** COMMENT Step 0 load metadata
 #+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
   dir(indir_master)
   # first read told me that there are 9 cols and it failed to identify
@@ -831,7 +849,7 @@ indat
   
   
 #+end_src
-*** COMMENT Step 0 load farmer type notes
+**** COMMENT Step 0 load farmer type notes
 #+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval no
   
   ## -    Notfarmer1DrylandFarmer2Irrigator3UnspecFmr4: This variable is my best estimate of whether 
@@ -847,7 +865,7 @@ indat
   ## common combinations. I am currently writing a full metadata entry for this variable as the logic 
   ## used to classify farmers who did multiple activities is complex. 
 #+end_src
-*** COMMENT Step 0 load farmer type
+**** COMMENT Step 0 load farmer type
 #+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
   indir_farmers  <- "~/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data/RWS Data Analysis/Farmer type coding"
   infile_farmers <- "Farmer type coding.csv"
@@ -861,7 +879,7 @@ indat
                                 "FarmerTypeSimple")]
   head(farmers)
 #+end_src
-*** COMMENT Step 0 load weights
+**** COMMENT Step 0 load weights
 #+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
   
   indir_wts <- "~/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Data/RWS Data Analysis/Weighting process/data_derived"
@@ -879,7 +897,7 @@ indat
   # [1] 13304     2
   
 #+end_src
-*** COMMENT Step 0 load merge
+**** COMMENT Step 0 load merge
 #+begin_src R :session *R* :tangle inst/doc/explore_RWS_load.R :exports none :eval yes
   dat  <- merge(master, farmers)
   dat  <- merge(dat, weights)
@@ -888,8 +906,7 @@ indat
   
 #+end_src
 
-
-*** COMMENT Step 1 define scope
+**** COMMENT Step 1 define scope
 #+begin_src R :session *R* :tangle no :exports none :eval yes
   flist <- dir("/home/ivan_hanigan/ownCloud/Regional Wellbeing Study/RWSurvey 2015/RWS Reports/Drought and extreme weather/figures_and_tables")
   flist <- strsplit(flist, "\\.")
@@ -949,7 +966,7 @@ indat
 | template                                                               |
 | template_drought_ewe_groups                                            |
 | versions                                                               |
-*** COMMENT Step 1.0 load report_sections
+**** COMMENT Step 1.0 load report_sections
 #+begin_src R :session *R* :tangle inst/doc/explore_RWS_define_scope.R :exports none :eval yes
   report_sections <- c("drought_ewe",                                                            
   "drought_ewe_AFFECTED",                                                  
@@ -962,88 +979,36 @@ indat
    
 #+end_src
 
-*** COMMENT Step 2 init
+**** COMMENT Step 2 init
 #+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
   #### Load
   source("inst/doc/explore_RWS_load.R")
   source("inst/doc/explore_RWS_define_scope.R")
 #+end_src
-*** COMMENT Step 2 initialise variables
-#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
-  
-  ls()
-  report_sections
-  sectionlabel <- "drought_ewe_AFFECTED_the_following"
-  
-  mainvars <- c("cNATDISdrought12moAFFECTpers",
-  "cNATDISdrought12moAFFECTjobbus",
-  "cNATDISdroughtAFFECThshld",
-  "cNATDISdroughtAFFECTcommunity")
-  
-
-#+end_src
-
-#+RESULTS:
-| cNATDISdrought12moAFFECTpers   |
-| cNATDISdrought12moAFFECTjobbus |
-| cNATDISdroughtAFFECThshld      |
-| cNATDISdroughtAFFECTcommunity  |
-
-*** TODO Step 2 dimension
-#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
-  dimension  <- "cREPORTINGREGIONS"    
-  #### make new dimension?
-  data.frame(table(dat[,dimension]))
-  #dat$SDgender2 <- recode(dat$SDgender,
-  #  recodes = "'Female     '='1.Female';'Male'='2.Male';")
-  #dimension  <- "cREPORTINGREGIONS2"
-  #dat$SDgender2 <- gsub(" ", "", dat$SDgender)
-  #data.frame(table(dat[,dimension]))
-  
-#+end_src
-*** COMMENT Step 2 mainvars
-#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
-  
-  mainvars_df <- data.frame(var = mainvars)
-  mainvars_df
-  mainvars_df <- merge(mainvars_df, metadata, by.x = "var", by.y = "Variable name")
-  nrow(mainvars_df)
-  names(mainvars_df)
-  
-  mainvars_df <-  mainvars_df[, c('sortorder', 'var',
-                  "Item stem - exact wording seen by respondents",
-                  "Item - exact wording seen by respondent OR description of variable",
-                  "Piping or display logic")]
-  
-  mainvars_df <- mainvars_df[order(mainvars_df$sortorder),]
-  mainvars_df[,c(1:2,4)]
-#+end_src
-*** COMMENT Step 2 go function xtab_RWS_by_dim
-#+begin_src R :session *R* :tangle R/xtab_RWS_by_dim.R :exports none :eval yes
-  xtab_RWS_by_dim <- function(
+*** TODO Function xtab_by_dimensions
+#+begin_src R :session *R* :tangle R/xtab_by_dimensions.R :exports none :eval yes
+  xtab_by_dimensions <- function(
     dat = dat
     ,
     pid = "cSURVID"
     ,
-    mainvar = "cNATDISdroughtAFFECTcommunity" 
+    mainvar = "cNATDISdroughtAFFECTcommunity2" 
     ,
-    dimension = "cREPORTINGREGIONS"
+    dimension = "SDgender2"
     ,
     weights = "GReg_Weight_NoEdu_Cut"
-    ,
-    trichotomise = TRUE
     ,
     overall = TRUE
     ,
     extra_exclusions_mainvar = NULL # i.e. -88 N/A along with standard -999
     ,
-    extra_exclusions_dimension = "''" #NULL # i.e. '' as well as standard -777
+    extra_exclusions_dimension = NULL # i.e. '' as well as standard -777
                                       # and -999
     ){
   invar <- c(pid, dimension, mainvar, weights)
   matrix(invar)
   
-  data.frame(table(dat[,dimension]))
+  # data.frame(table(dat[,dimension]))
   if(!is.null(extra_exclusions_dimension)){
     xtra <- paste("& dat[,dimension] != ", extra_exclusions_dimension, sep = "")
   } else {
@@ -1055,16 +1020,15 @@ indat
                ",xtra,"
                , invar
                ]", sep ="")
-  cat(txt)
+  #cat(txt)
   eval(parse(text=txt))  
-  str(datin)
-  
+  #str(datin)
   datin[,dimension] <- factor(datin[,dimension])
-  data.frame(table(datin[,dimension]))
+  #data.frame(table(datin[,dimension]))
     
   
-  mainvar
-  data.frame(table(datin[,mainvar]))  
+  #mainvar
+  #data.frame(table(datin[,mainvar]))  
   #head(datin)
   #str(datin)
   #summary(datin)
@@ -1079,36 +1043,15 @@ indat
                ",xtra,"
                , 
                ]", sep ="")
-  cat(txt)
+  #cat(txt)
   eval(parse(text=txt))  
-  str(datin)
+  #str(datin)
   
   datin[,mainvar] <- factor(datin[,mainvar])
-  data.frame(table(datin[,mainvar]))
+  #data.frame(table(datin[,mainvar]))
   
   #outcols <-
   #summa_out <- matrix(NA, nrow = 0, ncol = outcols)
-  
-  if(trichotomise){
-  #### recode the mainvar  
-  mainvar2  <- paste(mainvar, "2", sep = "")
-  # TODO how to include/exclude extra like N/A?
-  #if net 2 pos
-  txt0 <- paste("datin$",mainvar2," <- car::recode(datin$",mainvar,", recodes = \"0='0.No impact'; 1:3 = '1.Negative impact'; 4 = '2.Neither negative or positive'; 5:7 = '3.Positive impact'; -99 = '4.Dont know'\")",
-                sep = "")
-  
-  #if reduced - increased
-  #  txt0 <- paste("datin$",mainvar2," <- recode(datin$",mainvar,", recodes = \"1:3 = '1.Reduced'; 4 = '2.Neither reduced or increased'; 5:7 = '3.Increased'; -99 = '4.Dont know'\")",
-  #                sep = "")
-  # if disagree-agree
-  
-  
-  cat(txt0)
-  eval(parse(text=txt0))
-  datin[,mainvar2]  <- factor(datin[,mainvar2])
-  #table(datin[,c(mainvar2, mainvar)])
-  }
-  
   #head(datin)
   #nrow(datin)
   # 6558
@@ -1117,25 +1060,25 @@ indat
   
   # unweighted n
   n <- table(datin[,dimension])
-  n
+  #n
   #dat_wt <- svydesign(ids = ~Notfarmer1DrylandFarmer2Irrigator3, data
   #= datin, weights = datin$GReg_Weight_NoEdu_Cut)
-  txt1 <- paste("dat_wt <- svydesign(ids = ~",mainvar2,", data = datin, weights = datin$",weights,")", sep = "")
-  txt1
+  txt1 <- paste("dat_wt <- svydesign(ids = ~",mainvar,", data = datin, weights = datin$",weights,")", sep = "")
+  #txt1
   eval(parse(text=txt1))    
-  summary(dat_wt)
-  str(dat_wt)
+  #summary(dat_wt)
+  #str(dat_wt)
   
-  txt <- paste("summa <- cbind('",mainvar2,"', '",dimension,"', t(prop.table(svytable(~",mainvar2,"+",dimension,", design = dat_wt),2)), n)", sep = '')
-  txt
+  txt <- paste("summa <- cbind('",mainvar,"', '",dimension,"', t(prop.table(svytable(~",mainvar,"+",dimension,", design = dat_wt),2)), n)", sep = '')
+  #txt
   #qc <- t(prop.table(svytable(~cNATDISdroughthappen12mo+Notfarmer1DrylandFarmer2Irrigator3, design = dat_wt),2))
   #qc
   #cbind(qc*100,qc[,1]+qc[,2])
   eval(parse(text=txt))
-  summa
-  ## summa <- c(mainvar2, table(datin[,mainvar])/n, n)
-  as.data.frame(summa)
-  summa
+  #summa
+  ## summa <- c(mainvar, table(datin[,mainvar])/n, n)
+  #as.data.frame(summa)
+  #summa
   summa  <- cbind(summa, row.names(summa))
   ##   str(summa)
   #summa_out <- summa
@@ -1144,14 +1087,16 @@ indat
   #summa
   #head(summa)
   # TODO modify for number of cols
-  d2  <- apply(summa[,3:8], 2, as.numeric)
-  head(d2)
-  d2  <- data.frame(summa[,1:2], round(d2, 2))
-  #names(d2)  <- c("variable", "dimension", "No", "Yes", "n")
-  d2
   nc <- ncol(summa)
-  d2  <-  cbind(summa[,nc], d2)
-  names(d2)  <- c("state", "variable", "dimension", names(d2)[4:nc])
+  #nc
+  d2  <- apply(summa[,3:(nc-1)], 2, as.numeric)
+  #head(d2)
+  d2  <- data.frame(summa[,c(1:2, nc)], round(d2, 2))
+  #names(d2)  <- c("variable", "dimension", "No", "Yes", "n")
+  #d2
+  
+  #d2  <-  cbind(summa[,nc], d2)
+  names(d2)  <- c("variable", "dimension", "state", names(d2)[4:(nc)])
   row.names(d2) <- NULL
   ## d3  <- data.frame(variable = d2$variable, Disagree = rowSums(d2[,c(2:4)]),
   ##                   Neither_agree_or_disagree = d2[,5],
@@ -1187,35 +1132,157 @@ indat
   return(d2)
   }
 #+end_src
-*** COMMENT Step 2 go 
+*** Step 1.1 set up mainvars
+#+begin_src R :session *R* :tangle inst/doc/explore_RWS_define_scope.R :exports none :eval yes
+  
+  
+  mainvars <- c("cNATDISdrought12moAFFECTpers",
+  "cNATDISdrought12moAFFECTjobbus",
+  "cNATDISdroughtAFFECThshld",
+  "cNATDISdroughtAFFECTcommunity")
+  
+
+#+end_src
+
+#+RESULTS:
+| cNATDISdrought12moAFFECTpers   |
+| cNATDISdrought12moAFFECTjobbus |
+| cNATDISdroughtAFFECThshld      |
+| cNATDISdroughtAFFECTcommunity  |
+*** Step 1.2 create new mainvars by recoding
+#+name:Step 0 create new variables
+#+begin_src R :session *R* :tangle no :exports none :eval no
+  ########################################################################################
+  # clean
+  ## check the piping logic does not show people who should be excluded
+  
+  ## collapse into smaller groups
+  table(dat$cNATDISdroughtAFFECTcommunity)
+  
+  ## dat$cNATDISdroughtAFFECTcommunity2 <- recode(
+  ##   dat$cNATDISdroughtAFFECTcommunity,
+  ##   recodes = "0='0.No impact';
+  ##     1:3 = '1.Negative impact';
+  ##     4 = '2.Neither negative or positive';
+  ##     5:7 = '3.Positive impact';
+  ##     -99 = '4.Dont know'"
+  ##   )
+  ## as.data.frame(table(dat$cNATDISdroughtAFFECTcommunity2))
+  
+  for(mainvar in mainvars){
+  mainvar2  <- paste(mainvar, "2", sep = "")
+  txt0 <- paste("dat$",mainvar2," <- recode(dat$",mainvar,", recodes = \"0='0.No impact'; 1:3 = '1.Negative impact'; 4 = '2.Neither negative or positive'; 5:7 = '3.Positive impact'; -99 = '4.Dont know'\")",
+    sep = "")
+    
+  txt0
+  eval(parse(text=txt0))  
+  }
+  names(dat)
+  
+  # TODO add to metadata
+  #as.data.frame(t(metadata[1,]))
+  
+  #metadata <- rbind(metadata,
+  #                  c("newvar", "created from oldvar, added label for things")
+  #                  )
+  
+#+end_src
+
+*** Step 1.3 set up dimensions
 #+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
-  source("R/xtab_RWS_by_dim.R")
+  
+  #### make new dimension?
+  dat$Notfarmer1DrylandFarmer2Irrigator3 <- recode(dat$Notfarmer1DrylandFarmer2Irrigator3UnspecFmr4,
+    recodes = "'1'='1.Non-farmer';'2'='2.Dryland farmer';'3'='3.Irrigator';'4'='4.Unspecified farmer';'-999'='-999'")
+  
+  dat$SDgender2 <- recode(dat$SDgender,
+    recodes = "'Female     '='1.Female';
+    '     Male'='2.Male';
+    '-999'='-999';
+    'Other'='-999';
+    '     Prefer not to answer'='-999'")
+  
+  dat$cSDage2 <- recode(dat$cSDage,
+    recodes = "'Under 18 '='Under 18';18:39='18-39'; 40:54='40-54';55:64='55-64';65:96='65+';101='65+';-999='-999'")
+    
+  
+  dimensions  <- c("Notfarmer1DrylandFarmer2Irrigator3", "SDgender2", "cSDage2")
+  names(dat)[which(names(dat) %in% dimensions)]
+#+end_src
+*** Step 2 collect all relevant metadata 
+#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
+  
+  mainvars_df <- data.frame(var = mainvars)
+  mainvars_df
+  mainvars_df <- merge(mainvars_df, metadata, by.x = "var", by.y = "Variable name")
+  nrow(mainvars_df)
+  names(mainvars_df)
+  
+  mainvars_df <-  mainvars_df[, c('sortorder', 'var',
+                  "Item stem - exact wording seen by respondents",
+                  "Item - exact wording seen by respondent OR description of variable",
+                  "Piping or display logic")]
+  
+  mainvars_df <- mainvars_df[order(mainvars_df$sortorder),]
+  mainvars_df[,c(1:2,4)]
+#+end_src
+*** Step 3 source func, load data, clean dimensions and mainvars
+#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
+  ########################################################################################
+  # func
+  #rm(list = ls())
+  source("R/xtab_by_dimensions.R")
+  dir("inst/doc")
+  source("inst/doc/explore_RWS_define_scope.R")
+  ls()
   mainvars
-  dimension
+  #dimension
+  
+  report_sections
+  sectionlabel <- "drought_ewe_AFFECTED_the_following"
+  
   ########################################################################################3
+  # load
+  if(!exists("dat")){
+    source("inst/doc/explore_RWS_load.R")
+  }
+#+end_src
+
+#+RESULTS:
+
+*** Step 4 do xtabs
+#+begin_src R :session *R* :tangle snip.R :exports none :eval yes
+   
+  mainvars2 <- paste(mainvars, 2, sep  = "")
+                     mainvars2
+  names(dat)[which(names(dat) %in% dimensions)]
   
-  d2out <- xtab_RWS_by_dim(
-    dat = dat
-    ,
-    pid = "cSURVID"
-    ,
-    mainvar = "cNATDISdroughtAFFECTcommunity" 
-    ,
-    dimension = "FarmerTypeSimple"
-    ,
-    weights = "GReg_Weight_NoEdu_Cut"
-    ,
-    trichotomise = TRUE
-    ,
-    overall = TRUE
-    ,
-    extra_exclusions_mainvar = NULL 
-    ,
-    extra_exclusions_dimension = "''" 
-    )
+  d2out_list <- list(0)
+  for(i in 1:length(mainvars2)){
+  #  i  = 1
   
-  d2out
+    mainvar  <- mainvars2[i]
+    mainvar
+    d2out2_list <- list(0) 
+    for(j in 1:length(dimensions)){
+      dimension <- dimensions[j]
+      
+      d2out2_list[[j]] <- xtab_by_dimensions(dat = dat,
+        pid = "cSURVID",
+        mainvar = mainvar,
+        dimension = dimension,
+        weights = "GReg_Weight_NoEdu_Cut",
+        extra_exclusions_dimension = "'Prefer not to answer'"                                         
+        )
+    }
+    d2out_list[[i]] <- rbindlist(d2out2_list)
+    
+  }
   
+  d2out_list
+  outout <- rbindlist(d2out_list)
+  
+  outout
   ## write.csv(d2,
   ##           sprintf("figures_and_tables/%s.csv", sectionlabel)
   ##           , row.names=F)
@@ -1249,5 +1316,101 @@ indat
 #+end_src
 
 #+RESULTS:
-: /home/ivan_hanigan/Dropbox/projects_ceraph_transfers
+| cNATDISdrought12moAFFECTpers2   | Notfarmer1DrylandFarmer2Irrigator3 | 1.Non-farmer         |  0.4 | 0.36 | 0.17 | 0.04 | 0.04 | 3376 |
+| cNATDISdrought12moAFFECTpers2   | Notfarmer1DrylandFarmer2Irrigator3 | 2.Dryland farmer     | 0.16 | 0.53 | 0.16 | 0.14 | 0.01 | 2095 |
+| cNATDISdrought12moAFFECTpers2   | Notfarmer1DrylandFarmer2Irrigator3 | 3.Irrigator          | 0.17 | 0.49 | 0.18 | 0.15 | 0.01 |  879 |
+| cNATDISdrought12moAFFECTpers2   | Notfarmer1DrylandFarmer2Irrigator3 | 4.Unspecified farmer | 0.22 | 0.34 | 0.32 | 0.09 | 0.03 |  214 |
+| cNATDISdrought12moAFFECTpers2   | SDgender2                          | 1.Female             | 0.39 | 0.37 | 0.17 | 0.04 | 0.04 | 3470 |
+| cNATDISdrought12moAFFECTpers2   | SDgender2                          | 2.Male               | 0.36 | 0.37 | 0.17 | 0.06 | 0.04 | 3114 |
+| cNATDISdrought12moAFFECTpers2   | cSDage2                            | 18-39                | 0.42 | 0.35 | 0.13 | 0.03 | 0.07 |  716 |
+| cNATDISdrought12moAFFECTpers2   | cSDage2                            | 40-54                | 0.37 | 0.39 | 0.18 | 0.04 | 0.02 | 1760 |
+| cNATDISdrought12moAFFECTpers2   | cSDage2                            | 55-64                | 0.32 | 0.39 | 0.19 | 0.07 | 0.03 | 2033 |
+| cNATDISdrought12moAFFECTpers2   | cSDage2                            | 65+                  | 0.37 | 0.33 | 0.16 | 0.12 | 0.01 | 2071 |
+| cNATDISdrought12moAFFECTpers2   | cSDage2                            | Under 18             | 0.63 | 0.19 | 0.09 |    0 | 0.09 |    5 |
+| cNATDISdrought12moAFFECTjobbus2 | Notfarmer1DrylandFarmer2Irrigator3 | 1.Non-farmer         | 0.54 | 0.27 | 0.09 | 0.04 | 0.06 | 3075 |
+| cNATDISdrought12moAFFECTjobbus2 | Notfarmer1DrylandFarmer2Irrigator3 | 2.Dryland farmer     | 0.16 | 0.56 | 0.11 | 0.15 | 0.01 | 2031 |
+| cNATDISdrought12moAFFECTjobbus2 | Notfarmer1DrylandFarmer2Irrigator3 | 3.Irrigator          | 0.15 | 0.56 | 0.11 | 0.16 | 0.01 |  865 |
+| cNATDISdrought12moAFFECTjobbus2 | Notfarmer1DrylandFarmer2Irrigator3 | 4.Unspecified farmer | 0.24 | 0.58 | 0.07 | 0.09 | 0.01 |  190 |
+| cNATDISdrought12moAFFECTjobbus2 | SDgender2                          | 1.Female             | 0.53 | 0.28 | 0.08 | 0.04 | 0.07 | 3248 |
+| cNATDISdrought12moAFFECTjobbus2 | SDgender2                          | 2.Male               | 0.46 | 0.32 |  0.1 | 0.08 | 0.05 | 2931 |
+| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | 18-39                | 0.48 | 0.32 | 0.09 | 0.05 | 0.06 |  710 |
+| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | 40-54                | 0.48 | 0.31 |  0.1 | 0.05 | 0.06 | 1725 |
+| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | 55-64                | 0.53 | 0.25 |  0.1 | 0.07 | 0.06 | 1971 |
+| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | 65+                  | 0.58 | 0.24 | 0.06 | 0.09 | 0.03 | 1770 |
+| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | Under 18             | 0.63 | 0.19 |    0 |    0 | 0.18 |    5 |
+| cNATDISdroughtAFFECThshld2      | Notfarmer1DrylandFarmer2Irrigator3 | 1.Non-farmer         | 0.49 | 0.28 | 0.12 | 0.04 | 0.07 | 3243 |
+| cNATDISdroughtAFFECThshld2      | Notfarmer1DrylandFarmer2Irrigator3 | 2.Dryland farmer     |  0.2 | 0.51 | 0.15 | 0.12 | 0.03 | 2010 |
+| cNATDISdroughtAFFECThshld2      | Notfarmer1DrylandFarmer2Irrigator3 | 3.Irrigator          | 0.22 | 0.43 | 0.17 | 0.14 | 0.03 |  837 |
+| cNATDISdroughtAFFECThshld2      | Notfarmer1DrylandFarmer2Irrigator3 | 4.Unspecified farmer | 0.23 | 0.54 | 0.11 | 0.11 | 0.01 |  192 |
+| cNATDISdroughtAFFECThshld2      | SDgender2                          | 1.Female             | 0.44 | 0.33 | 0.13 | 0.05 | 0.05 | 3342 |
+| cNATDISdroughtAFFECThshld2      | SDgender2                          | 2.Male               | 0.49 | 0.27 | 0.11 | 0.05 | 0.08 | 2960 |
+| cNATDISdroughtAFFECThshld2      | cSDage2                            | 18-39                | 0.47 | 0.31 |  0.1 | 0.05 | 0.08 |  711 |
+| cNATDISdroughtAFFECThshld2      | cSDage2                            | 40-54                | 0.46 | 0.31 | 0.13 | 0.05 | 0.06 | 1736 |
+| cNATDISdroughtAFFECThshld2      | cSDage2                            | 55-64                | 0.45 |  0.3 | 0.15 | 0.05 | 0.06 | 1964 |
+| cNATDISdroughtAFFECThshld2      | cSDage2                            | 65+                  | 0.49 | 0.26 | 0.11 | 0.09 | 0.06 | 1887 |
+| cNATDISdroughtAFFECThshld2      | cSDage2                            | Under 18             |    0 | 0.19 |    0 | 0.63 | 0.18 |    5 |
+| cNATDISdroughtAFFECTcommunity2  | Notfarmer1DrylandFarmer2Irrigator3 | 1.Non-farmer         | 0.03 | 0.66 | 0.11 | 0.12 | 0.08 | 3383 |
+| cNATDISdroughtAFFECTcommunity2  | Notfarmer1DrylandFarmer2Irrigator3 | 2.Dryland farmer     | 0.09 | 0.59 | 0.11 | 0.17 | 0.03 | 2089 |
+| cNATDISdroughtAFFECTcommunity2  | Notfarmer1DrylandFarmer2Irrigator3 | 3.Irrigator          | 0.06 | 0.57 | 0.12 | 0.16 | 0.08 |  871 |
+| cNATDISdroughtAFFECTcommunity2  | Notfarmer1DrylandFarmer2Irrigator3 | 4.Unspecified farmer | 0.08 | 0.41 | 0.08 | 0.39 | 0.05 |  214 |
+| cNATDISdroughtAFFECTcommunity2  | SDgender2                          | 1.Female             | 0.02 | 0.68 |  0.1 | 0.11 | 0.08 | 3482 |
+| cNATDISdroughtAFFECTcommunity2  | SDgender2                          | 2.Male               | 0.04 | 0.63 | 0.12 | 0.14 | 0.06 | 3095 |
+| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | 18-39                | 0.02 |  0.7 | 0.08 |  0.1 | 0.09 |  717 |
+| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | 40-54                | 0.03 | 0.69 | 0.12 |  0.1 | 0.05 | 1758 |
+| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | 55-64                | 0.02 |  0.6 | 0.13 | 0.16 | 0.09 | 2030 |
+| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | 65+                  | 0.08 | 0.46 | 0.18 | 0.22 | 0.06 | 2067 |
+| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | Under 18             |    0 | 0.73 |    0 | 0.09 | 0.18 |    5 |
+*** COMMENT snip
+#+begin_src R :session *R* :tangle snip.R :exports none :eval no
+  #### name:snip ####
+
+  ########################################################################################3
+  # do
+  d2out <- xtab_by_dimensions(
+    dat = dat
+    ,
+    pid = "cSURVID"
+    ,
+    mainvar = "cNATDISdroughtAFFECTcommunity2" 
+    ,
+    dimension = "FarmerTypeSimple"
+    ,
+    weights = "GReg_Weight_NoEdu_Cut"
+    ,
+    recodes = NULL
+    ,
+    overall = TRUE
+    ,
+    extra_exclusions_mainvar = NULL 
+    ,
+    extra_exclusions_dimension = "''" 
+    )
+  
+  d2out
+
+
+    
+  
+  recodes = "0='0.No impact'; 1:3 = '1.Negative impact'; 4 = '2.Neither negative or positive'; 5:7 = '3.Positive impact'; -99 = '4.Dont know'"
+  if(!is.null(recodes)){
+  #### recode the mainvar  
+  mainvar2  <- paste(mainvar, "2", sep = "")
+  # TODO how to include/exclude extra like N/A?
+  #if net 2 pos
+  txt0 <- paste("datin$",mainvar2," <- car::recode(datin$",mainvar,", recodes = \"", recodes, "\")",
+                sep = "")
+  
+  #if reduced - increased
+  #  txt0 <- paste("datin$",mainvar2," <- recode(datin$",mainvar,", recodes = \"1:3 = '1.Reduced'; 4 = '2.Neither reduced or increased'; 5:7 = '3.Increased'; -99 = '4.Dont know'\")",
+  #                sep = "")
+  # if disagree-agree
+  
+  
+  cat(txt0)
+  eval(parse(text=txt0))
+  datin[,mainvar2]  <- factor(datin[,mainvar2])
+  #table(datin[,c(mainvar2, mainvar)])
+  }
+  
+#+end_src
 
