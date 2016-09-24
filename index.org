@@ -156,6 +156,16 @@ anything that is in the middle. This approach is only used when you
 have at least 7 categories. For a 10-point Likert scale the groupings
 are: 1/2/3/4, 5/6, 7/8, 9/10.
 
+also see
+http://www.measuringu.com/blog/top-box.php
+
+Top-two-box scoring is popular for rating scales with between 7 and 11
+points. For example, the 11 point Net Promoter Question "How likely
+are you to recommend this product to a friend" has the top-two boxes
+of 9 and 10. The top-two-box responses are called "promoters," and
+responses from 0 to 6 (bottom 7) are called "detractors."  The Net
+Promoter Score gets its name from subtracting the proportion of
+detractors from promoters.
 ** Reshape: To Long
 ** Reshape: To Wide
 ** Summarise
@@ -992,11 +1002,13 @@ indat
     ,
     pid = "cSURVID"
     ,
-    mainvar = "cNATDISdroughtAFFECTcommunity2" 
+    mainvar = "cNATDISdroughthappen12mo" 
     ,
-    dimension = "SDgender2"
+    dimension = "overall"
     ,
-    weights = "GReg_Weight_NoEdu_Cut"
+    weights = "GReg_Weight_NoEdu_Cut" # or NULL
+    ,
+    ci_prop = NULL # the name of the col with the proportion to give CI for
     ,
     overall = TRUE
     ,
@@ -1069,7 +1081,7 @@ indat
   #summary(dat_wt)
   #str(dat_wt)
   
-  txt <- paste("summa <- cbind('",mainvar,"', '",dimension,"', t(prop.table(svytable(~",mainvar,"+",dimension,", design = dat_wt),2)), n)", sep = '')
+  txt <- paste("summa <- cbind('",mainvar,"', '",dimension,"', n, t(prop.table(svytable(~",mainvar,"+",dimension,", design = dat_wt),2)))", sep = '')
   #txt
   #qc <- t(prop.table(svytable(~cNATDISdroughthappen12mo+Notfarmer1DrylandFarmer2Irrigator3, design = dat_wt),2))
   #qc
@@ -1089,9 +1101,21 @@ indat
   # TODO modify for number of cols
   nc <- ncol(summa)
   #nc
-  d2  <- apply(summa[,3:(nc-1)], 2, as.numeric)
+  if(nrow(summa) == 1){
+    d2  <- sapply(summa[,3:(nc-1)], as.numeric)
+    
+    d2  <- data.frame(
+      matrix(summa[,c(1:2, nc)], nrow = 1),
+                      matrix(round(d2, 3), nrow = 1)
+                      )
+    names(d2)[4:(nc)]  <- names(summa[,3:(nc-1)])  
+  #d2
+  } else {
+    d2  <- apply(summa[,3:(nc-1)], 2, as.numeric)
+    d2  <- data.frame(summa[,c(1:2, nc)], round(d2, 3))
+  }
   #head(d2)
-  d2  <- data.frame(summa[,c(1:2, nc)], round(d2, 2))
+  
   #names(d2)  <- c("variable", "dimension", "No", "Yes", "n")
   #d2
   
@@ -1116,20 +1140,61 @@ indat
   ## paste(names(d2), sep = "", collapse = "', '")
   ## d2 <- d2[,c('var', 'state', 'dimension', 'sortorder', 'Item stem - exact wording seen by respondents', 'Item - exact wording seen by respondent OR description of variable', 'No', 'Yes', 'n', 'Piping or display logic')]
   ## d2[,2] <- paste(d2[,2], " (n=", d2$n, ")", sep = "")
-  
+  if(!is.null(ci_prop)){
   # adjusted wald from http://www.measuringux.com/adjustedwald.htm
-  ## z <- 2
-  ## # rather than 1.96
-  ## padj <- (d2$n*d2$Yes + (z^2)/2)/(d2$n + z^2)
+  z <- 2
+  # rather than 1.96
+  padj <- (d2$n * d2[,ci_prop] + (z^2)/2)/(d2$n + z^2)
   
-  ## nadj <- d2$n + z^2
+  nadj <- d2$n + z^2
   
-  ## # And finally, the calculation of the confidence interval:
+  # And finally, the calculation of the confidence interval:
   
-  ## d2$ci  <- z * sqrt(padj*(1 - padj)/nadj)  
-  # we will use this +/- on the proportion (not the padj as recommended, because the asymmetry 
+  d2$z_se  <- z * sqrt(padj*(1 - padj)/nadj)  
+  d2$lci  <- d2[,ci_prop] - (z * sqrt(padj*(1 - padj)/nadj))
+  d2$uci  <- d2[,ci_prop] + (z * sqrt(padj*(1 - padj)/nadj))
+  # NB we will use this +/- on the proportion (not the padj as recommended, because the asymmetry 
   # might look odd to our audience)
+  }
   return(d2)
+  }
+#+end_src
+
+*** TODO Function xtab_variables_by_dimensions
+#+begin_src R :session *R* :tangle R/xtab_variables_by_dimensions.R :exports none :eval yes
+     
+  xtab_variables_by_dimensions <- function(dat = NULL,
+                                           pid = NULL,
+                                           variables = NULL,
+                                           dimensions = NULL,
+                                           weights = NULL, 
+                                           ci_prop = NULL){
+  d2out_list <- list(0)
+  for(i in 1:length(variables)){
+  #  i  = 1
+  
+    mainvar  <- variables[i]
+    mainvar
+    d2out2_list <- list(0) 
+    for(j in 1:length(dimensions)){
+      dimension <- dimensions[j]
+      
+      d2out2_list[[j]] <- xtab_by_dimensions(dat = dat,
+        pid = pid,
+        mainvar = mainvar,
+        dimension = dimension,
+        weights = weights, 
+        ci_prop = ci_prop
+        )
+    }
+    d2out_list[[i]] <- rbindlist(d2out2_list)
+    
+  }
+  
+  #d2out_list
+  outout <- rbindlist(d2out_list)
+  
+  return(outout)
   }
 #+end_src
 *** Step 1.1 set up mainvars
@@ -1149,9 +1214,35 @@ indat
 | cNATDISdrought12moAFFECTjobbus |
 | cNATDISdroughtAFFECThshld      |
 | cNATDISdroughtAFFECTcommunity  |
+*** Step 3 source func, load data, clean dimensions and mainvars
+#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
+  ########################################################################################
+  # func
+  #rm(list = ls())
+  source("R/xtab_by_dimensions.R")
+  source("R/xtab_variables_by_dimensions.R")
+  dir("inst/doc")
+  source("inst/doc/explore_RWS_define_scope.R")
+  ls()
+  mainvars
+  #dimension
+  
+  report_sections
+  sectionlabel <- "drought_ewe_AFFECTED_the_following"
+  
+  ########################################################################################3
+  # load
+  if(!exists("dat")){
+    source("inst/doc/explore_RWS_load.R")
+  }
+#+end_src
+
+#+RESULTS:
+=drought_ewe_AFFECTED_the_following
+
 *** Step 1.2 create new mainvars by recoding
 #+name:Step 0 create new variables
-#+begin_src R :session *R* :tangle no :exports none :eval no
+#+begin_src R :session *R* :tangle no :exports none :eval yes
   ########################################################################################
   # clean
   ## check the piping logic does not show people who should be excluded
@@ -1188,9 +1279,1052 @@ indat
   
 #+end_src
 
+#+RESULTS: Step
+| cSURVID                                       |
+| cSURVMODE                                     |
+| cSURVResponseID                               |
+| cSURVStartDate                                |
+| cSURVEndDate                                  |
+| cSURVfinished                                 |
+| cSURVpanel                                    |
+| cSURVlength                                   |
+| cCWBpositive                                  |
+| cCWBnegative                                  |
+| cCM2grtplc                                    |
+| cCM2brtfuture                                 |
+| cCM2proudlive                                 |
+| cCM2commspirit                                |
+| cCM2envsurr                                   |
+| cCM2safeplc                                   |
+| cCM2envgood                                   |
+| cCM2attractivebdlg                            |
+| cCM2attractivenatplaces                       |
+| cCM2highcrimerate                             |
+| cCM2commalcohol                               |
+| cCM2commdrugs                                 |
+| cCM2alcoholdrugs                              |
+| cCMSERVhealth                                 |
+| cCMSERVmentalhealth                           |
+| cCMSERVspecialhealth                          |
+| cCMSERVmobphone                               |
+| cCMSERVhighspeedinternet                      |
+| cCMSERVeducat                                 |
+| cCMSERVchildcare                              |
+| cCMSERVroads                                  |
+| cCMSERVpublictrans                            |
+| cCMSERVprofserv                               |
+| cCMSERVretail                                 |
+| cCMSERVfrshfruitveg                           |
+| cCMSERVaffordfood                             |
+| cCMSERVagedcare                               |
+| cCMSERVbanking                                |
+| cCMSERVATM                                    |
+| cCMSERVACCESSgenhealth                        |
+| cCMSERVACCESSmentalhealth                     |
+| cCMSERVACCESSspecialhealth                    |
+| cCMSERVACCESSeducat                           |
+| cCMSERVACCESSfinadvice                        |
+| cCMSERVACCESSgrocery                          |
+| cCMSERVACCESSbanking                          |
+| cCMSERVACCESSATM                              |
+| cCMSERVACCESSlegal                            |
+| cCMSERVACCESSaccounting                       |
+| cCMSERVACCESSchemist                          |
+| cCTYCHGliveability                            |
+| cCTYCHGfriendliness                           |
+| cCTYCHGlocaleconomy                           |
+| cCTYCHGlandscapesurrounds                     |
+| cCM5livcosts                                  |
+| cCM2locbusdoingwell                           |
+| cCM5plentyjobs                                |
+| cCM5finwell.off                               |
+| cCM4Sgethelp                                  |
+| cCM4takelead                                  |
+| cCM5locgroupsgood                             |
+| cCM4copewell                                  |
+| cCMfairgo                                     |
+| cCM5locgovhelp                                |
+| cCM5kdecisrep                                 |
+| cCM5involveDM                                 |
+| cCMRecomgoodplace                             |
+| cCM6welcome                                   |
+| cCM6partcomm                                  |
+| cCM6inittogether                              |
+| cCM6outsider                                  |
+| cSOCgroupsisolated                            |
+| cSOCgroupsnbhdnotwelcome                      |
+| cSOCctydisagreement                           |
+| cCM8timefam                                   |
+| cCM8timefriends                               |
+| cCM8chatneigh                                 |
+| cCM8sportsgrpteam                             |
+| cCM8communitycluborgs                         |
+| cCM8usecommunityplaces                        |
+| cCM8attendctyevents                           |
+| cCM8artscultureevents                         |
+| cCM8politactiv                                |
+| cCM8volunteerlocalcom                         |
+| cVOLemergservicesYN                           |
+| cVOLcommunityeventsYN                         |
+| cVOLsportrecclubYN                            |
+| cVOLschoolrelatedYN                           |
+| cVOLserviceclubYN                             |
+| cVOLfarmagorgnYN                              |
+| cVOLenvtconservationlcareYN                   |
+| cVOLhealthwelfareYN                           |
+| cVOLchurchYN                                  |
+| cVOLanimalservicesYN                          |
+| cVOLmusicartscultureYN                        |
+| cVOLotherYN                                   |
+| cVOLotherdescribe                             |
+| cVOLotherdescribe_Recoded.into.existing.codes |
+| cGEOGSTEorig                                  |
+| cGEOGSTE                                      |
+| cGEOGlocalityprimaryUNCLEANED                 |
+| cGEOGlocality                                 |
+| GEOGpcodeprimaryUNCLEANED                     |
+| GEOGpcode                                     |
+| cGEOGRDA                                      |
+| cREPORTINGREGIONS                             |
+| cGEOGLGA                                      |
+| cGEOGSA2code                                  |
+| cGEOGSA2name                                  |
+| cGEOGUCLcode                                  |
+| cGEOGUCLname                                  |
+| cGEOGuclconfidence                            |
+| cGEOGMDB                                      |
+| cGEOGMDBconfidence                            |
+| cGEOGBasinPlanRegion                          |
+| cGEOGSWSDL                                    |
+| cGEOGNRMregion                                |
+| cGEOGLLSregion                                |
+| cGEOGlocalitysecdryUNCLEANED                  |
+| GEOGpcodesecdryUNCLEANED                      |
+| cGEOGruraltown                                |
+| cMIGyrslived                                  |
+| cMIGhowlikelyshift5ptscale                    |
+| cMIGconsidernoshift                           |
+| cLSlifewhole                                  |
+| cLSstandardliving                             |
+| cLShealth                                     |
+| cLSachieving                                  |
+| cLSrelationships                              |
+| cLSsafeyoufeel                                |
+| cLScommunity                                  |
+| cLSfuturesecurity                             |
+| cLSlifeworthwhile                             |
+| cHCachgoals                                   |
+| cHCaccompdifftasks                            |
+| cHCachievimportant                            |
+| cHCsuccmostthings                             |
+| cHCovercomechallenges                         |
+| cHCconfperfomwell                             |
+| cHCcompothdowell                              |
+| cHCdiffworkwell                               |
+| cHClearnskills                                |
+| cHCskillsindemand                             |
+| cHEALTHgen                                    |
+| cHEALTHbdypn                                  |
+| cHEALTHsmoke                                  |
+| cHEALTHdrink                                  |
+| ck10_1                                        |
+| ck10_2                                        |
+| ck10_3                                        |
+| ck10_4                                        |
+| ck10_5                                        |
+| ck10_6                                        |
+| ck10_7                                        |
+| ck10_8                                        |
+| ck10_9                                        |
+| ck10_10                                       |
+| SDgender                                      |
+| cSDage                                        |
+| cSDethnicity                                  |
+| cATSIno                                       |
+| cATSIaboriginal                               |
+| cATSItorresstraitislander                     |
+| cSDhhldstruct                                 |
+| cSDdependants                                 |
+| cSDlgbtiqastraight                            |
+| cSDlgbtiqalesbiangay                          |
+| cSDlgbtiqabisexual                            |
+| cSDlgbtiqaother                               |
+| cSDlgbtiqaprefernotsay                        |
+| cSDhousing                                    |
+| cHOUSEAFFORDlackquality                       |
+| cHOUSEAFFORDlackavail                         |
+| cHOUSEAFFORDlrgdeposit                        |
+| cHOUSEAFFORDgetloan                           |
+| cHOUSEAFFORDnone                              |
+| cHOUSEAFFORDNA                                |
+| cSDeducation                                  |
+| cSDEMPretired                                 |
+| cSDEMPptunpaidcare                            |
+| cSDEMPftunpaidcare                            |
+| cSDEMPselfemp                                 |
+| cSDEMPftwork                                  |
+| cSDEMPptwork                                  |
+| cSDEMPcasualwork                              |
+| cSDEMPunempl                                  |
+| cSDEMPstudypt                                 |
+| cSDEMPstudyft                                 |
+| cSDEMPcreative                                |
+| cSDEMPother                                   |
+| cSDEMPothdescribe                             |
+| cSDtravelwork                                 |
+| cSDworkhome                                   |
+| cFMRmanagefarm                                |
+| cFMRassistmgefarm                             |
+| cFMRworkernotmgr                              |
+| cFMRagcontractor                              |
+| cFMRagprofessional                            |
+| cFMRusedtobe                                  |
+| cFMRnoag                                      |
+| cSDworkocc_1                                  |
+| cSDworkocc_2                                  |
+| cSDincome                                     |
+| cSDfinfam                                     |
+| cSDgovpenno                                   |
+| cSDgovpenyesage                               |
+| cSDgovpenyesdisab                             |
+| cSDgovpenyesoth                               |
+| cSDFINholiday                                 |
+| cSDFINgoingout                                |
+| cSDFINnonfood                                 |
+| cSDFINpaybills                                |
+| cSDFINmortgage                                |
+| aSDFINpawned                                  |
+| cSDFINnomeals                                 |
+| cSDFINheatcoolhome                            |
+| cSDFINhelpfam                                 |
+| cSDFINhelporg                                 |
+| cSDFINnone                                    |
+| cNATDISdroughthappen12mo                      |
+| cNATDIScoldsnaphappen                         |
+| cNATDISheatwavehappen                         |
+| cNATDISbushfirehappen                         |
+| cNATDISseverestormcyclonehappen               |
+| cNATDISfloodhappen                            |
+| cNATDISdrought12moAFFECT                      |
+| cNATDIScoldsnapAFFECT                         |
+| cNATDISheatwaveAFFECT                         |
+| cNATDISbushfireAFFECT                         |
+| cNATDISseverestormAFFECT                      |
+| cNATDISfloodAFFECT                            |
+| cNATDISdroughtYEAR20062010                    |
+| cNATDISdroughtYEAR2011                        |
+| cNATDISdroughtYEAR2012                        |
+| cNATDISdroughtYEAR2013                        |
+| cNATDISdroughtYEAR2014                        |
+| cNATDISdroughtYEAR2015                        |
+| cNATDISdrought12moAFFECTpers                  |
+| cNATDISdrought12moAFFECTjobbus                |
+| cNATDISdroughtAFFECThshld                     |
+| cNATDISdroughtAFFECTcommunity                 |
+| cNATDISdroughtCHANGEDinc                      |
+| cNATDISdroughtCHANGEDstress                   |
+| cNATDISdroughtCHANGEDamountspent              |
+| cNATDISdroughtCHANGEDhshldexp                 |
+| cNATDISdroughtCHANGEDsatpersrel               |
+| cNATDISdroughtCHANGEDsocfrnds                 |
+| cNATDISdroughtCHANGEDwrkload                  |
+| cNATDISdroughtCHANGEDtimefam                  |
+| cNATDISdroughtCHANGEDcmntyorg                 |
+| cNATDISdroughtCHANGEDsoccmnty                 |
+| cNATDISdroughtCHANGEDcmntyspprt               |
+| cNATDISdroughtCHANGEDbsnscmnty                |
+| cNATDISdroughtCHANGEDofffrmwrk                |
+| cNATDISdroughtCHANGEDinvstfrm                 |
+| cNATDISdroughtCHANGEDdesirefarm               |
+| cNATDISdroughtCHANGEDlocalpopn                |
+| cNATDISdroughtCHANGEDfamlyholdy               |
+| cNATDISdroughtaccessinfobom                   |
+| cNATDISdroughtaccessinfoclimfore              |
+| cNATDISdroughtaccessinfoprepdry               |
+| cNATDISdroughtaccessinfoprepgov               |
+| cNATDISdroughtaccessinfogovweb                |
+| cNATDISdroughtaccessinfoagpro                 |
+| cNATDISdroughtaccessinfoaggrp                 |
+| cNATDISdroughtaccessinfolandcare              |
+| cNATDISdroughtaccessinfotraining              |
+| cNATDISdroughtaccessinfoother                 |
+| cNATDISdroughtaccessinfoothertxt              |
+| cNATDISdroughtaccessinfobom2                  |
+| cNATDISdroughtaccessinfoclimfor2              |
+| cNATDISdroughtaccessinfoprepdry2              |
+| cNATDISdroughtaccessinfoprepgov2              |
+| cNATDISdroughtaccessinfogovweb2               |
+| cNATDISdroughtaccessinfoagpro2                |
+| cNATDISdroughtaccessinfoaggrp2                |
+| cNATDISdroughtaccessinfolandcre2              |
+| cNATDISdroughtaccessinfotrain2                |
+| cNATDISdroughtaccessinfoother2                |
+| cNATDISdroughtmngwater                        |
+| cNATDISdroughtmngwateff                       |
+| cNATDISdroughtmngfeedrsrv                     |
+| cNATDISdroughtmngungraz                       |
+| cNATDISdroughtmngriskass                      |
+| cNATDISdroughtmngplan                         |
+| cNATDISdroughtmngfinrsrv                      |
+| cANviews                                      |
+| cANINTnonotice                                |
+| cANINTavoid                                   |
+| cANINTdontint                                 |
+| cANINTwatch                                   |
+| cANINTothers                                  |
+| cANINTtakecare                                |
+| cANINTbackyard                                |
+| cANINTworking                                 |
+| cANINTsport                                   |
+| cANINTbreed                                   |
+| cANINTlivestock                               |
+| cANINTrescue                                  |
+| cANINTworkother                               |
+| cANPETdog                                     |
+| cANPETcat                                     |
+| cANPETfish                                    |
+| cANPETbird                                    |
+| cANPETrabbit                                  |
+| cANPETguineapig                               |
+| cANPETmice                                    |
+| cANPEThorse                                   |
+| cANPETreptile                                 |
+| cANPETinsect                                  |
+| cANPETchicken                                 |
+| cANPETgoat                                    |
+| cANPETsheep                                   |
+| cANPETcattle                                  |
+| cANPETother                                   |
+| cANPETnumber                                  |
+| cANPETattached                                |
+| cANBACKdog                                    |
+| cANBACKchicken                                |
+| cANBACKduck                                   |
+| cANBACKgeese                                  |
+| cANBACKgoat                                   |
+| cANBACKsheep                                  |
+| cANBACKcow                                    |
+| cANBACKother                                  |
+| cANBACKothdesc                                |
+| cANBACKnumber                                 |
+| cANBACKattached                               |
+| cANSPORTdog                                   |
+| cANSPORTcat                                   |
+| cANSPORTfish                                  |
+| cANSPORTbird                                  |
+| cANSPORTrabbit                                |
+| cANSPORTguineapig                             |
+| cANSPORTmice                                  |
+| cANSPORThorse                                 |
+| cANSPORTreptile                               |
+| cANSPORTinsect                                |
+| cANSPORTchicken                               |
+| cANSPORTgoat                                  |
+| cANSPORTsheep                                 |
+| cANSPORTcattle                                |
+| cANSPORTother                                 |
+| cANSPORTothdesc                               |
+| cANSPORTnumber                                |
+| cANSPORTattached                              |
+| cANWORKdog                                    |
+| cANWORKhorse                                  |
+| cANWORKother                                  |
+| cANWORKothdesc                                |
+| cANWORKnumber                                 |
+| cANWORKattached                               |
+| cANOFTENfeedwater                             |
+| cANOFTENhealth                                |
+| cANOFTENgroom                                 |
+| cANOFTENexercise                              |
+| cANOFTENtime                                  |
+| cANOFTENtreats                                |
+| cANOFTENtraining                              |
+| cANOFTENactivities                            |
+| cANOFTENsocial                                |
+| cANOFTENoutdoors                              |
+| cANOFTENindoors                               |
+| cANOFTENother                                 |
+| cENVPROBregion                                |
+| cENVPROBlowpriority                           |
+| cH2Ocopechange                                |
+| cCCfossil                                     |
+| cCCworry                                      |
+| cCCsciencedoubt                               |
+| cENVCHnativeveg                               |
+| cENVCHnativefish                              |
+| cENVCHferal                                   |
+| cENVCHweeds                                   |
+| cENVCHnativeanmials                           |
+| cENVCHbird                                    |
+| cENVh2o                                       |
+| cENVh2osalinity                               |
+| cENVsoilerosion                               |
+| cENVsoilsalinity                              |
+| cENVsoilhealth                                |
+| cENVferalanimals                              |
+| cENVpestfish                                  |
+| cENVinvasiveweeds                             |
+| cENVlossvegetation                            |
+| ENVpoorveghealth                              |
+| cENVpoorhealthrivers                          |
+| ENVlessnativeanimalbird                       |
+| cENVdeclinenativefish                         |
+| cACCsubdivision                               |
+| cACCsolarfarms                                |
+| cACCtreesenvt                                 |
+| cACCwindfarms                                 |
+| cACCcsg                                       |
+| cACCregvegclearance                           |
+| cACCgmocrops                                  |
+| cACCEnvWatering                               |
+| cACCintensivelivestock                        |
+| cWETMANmoreimpissues                          |
+| cWETMANdomore                                 |
+| cWETMANpoorcond                               |
+| cWETMANexaggerated                            |
+| cWETMANriverreg                               |
+| cH2OpriorityAG                                |
+| cH2OpriorityENV                               |
+| cH2OpriorityHSHLD                             |
+| cH2OpriorityREC                               |
+| cH2OpriorityIND                               |
+| cEWATERregionlast5yr                          |
+| cEWATERregioninfuture                         |
+| cEWATERflowthroughregion                      |
+| cEWATERimportantplaces                        |
+| cEWATERhaveviews                              |
+| cEWATERcanfindout2015                         |
+| cEWATERcancommunicate2015                     |
+| cEWATERgoodforenvt2015                        |
+| cEWATERcausesomeproblems2015                  |
+| cEWATERSUPPORTgeneral                         |
+| cEWATERSUPPORTwherelive                       |
+| cEWATERSUPPORTbirdbreed                       |
+| cEWATERSUPPORTculture                         |
+| cEWATERSUPPORTveggrowth                       |
+| cEWATERSUPPORTfish                            |
+| cEWATERRESULTerosion                          |
+| cEWATERRESULTweeds                            |
+| cEWATERRESULTpestfish                         |
+| cEWATERRESULTblackwater                       |
+| cEWATERRESULTencroachtrees                    |
+| cEWATERRESULTmoresalinity                     |
+| cEWATERRESULTnegimpfarminfras                 |
+| cEWATERRESULTencroachtreesonfarm              |
+| cEWATERRESULTimpedeaccessonfarm               |
+| cEWATERRESULTinundatefarm                     |
+| cEWATERRESULTdistruptfarmops                  |
+| cEWATERRESULTnoprobs                          |
+| cEWATERRESULTmorenativefish                   |
+| cEWATERRESULTimproveveghealth                 |
+| cEWATERRESULTmorebirds                        |
+| cEWATERRESULTbetterfishing                    |
+| cEWATERRESULTbetterswimming                   |
+| cEWATERRESULTimprovepasture                   |
+| cEWATERRESULTlesssalinity                     |
+| cEWATERRESULThealthywaterways                 |
+| cEWATERRESULTpasturecroponfarm                |
+| cEWATERRESULTothbenefitonfarm                 |
+| cEWATERorgCEWH                                |
+| cEWATERorgMDBA                                |
+| cEWATERorgnrm                                 |
+| cEWATERorgoeh                                 |
+| cEWATERorgdpi                                 |
+| cEWATERorgwaternsw                            |
+| cEWATERorgmacefrg                             |
+| cEWATERorggwydirecaoac                        |
+| cEWATERorglrwg                                |
+| cEWATERorgmurrayewag                          |
+| cEWATERorgmurrumbewarg                        |
+| cEWATERorgOTHER                               |
+| cEWATERtalkedtoCEWH                           |
+| cEWATERtalkedtoMDBA                           |
+| cEWATERtalkedtonrm                            |
+| cEWATERtalkedtooeh                            |
+| cEWATERtalkedtodpi                            |
+| cEWATERtalkedtowaternsw                       |
+| cEWATERtalkedtomacefrg                        |
+| cEWATERtalkedtogwydirecaoac                   |
+| cEWATERtalkedtolachlanlrwg                    |
+| cEWATERtalkedtomurrayewag                     |
+| cEWATERtalkedtomurrumbewarg                   |
+| cEWATERtalkedtoOTHER                          |
+| cEWATERINFOemail                              |
+| cEWATERINFOwebsite                            |
+| cEWATERINFOfacebook                           |
+| cEWATERINFOtwitter                            |
+| cEWATERINFOflyer                              |
+| cEWATERINFOnewspaper                          |
+| cEWATERINFOnrmgroup                           |
+| cEWATERINFOfishinggroup                       |
+| cEWATERINFOfarmorg                            |
+| cEWATERINFOshops                              |
+| cEWATERINFOoth                                |
+| cEWATERINFOothdesc                            |
+| ENVWTRINVnone                                 |
+| ENVWTRINVinfoonly                             |
+| ENVWTRINVsurvey                               |
+| ENVWTRINVmtgs                                 |
+| ENVWTRINVinfoandhavesay                       |
+| NSWWATERwaterway1                             |
+| NSWWATERwaterway2                             |
+| NSWWATERwaterway3                             |
+| NSWWATERwaterway4                             |
+| NSWWATERwaterway5                             |
+| NSWwaterway1spircultural                      |
+| NSWwaterway2spircultural                      |
+| NSWwaterway3spircultural                      |
+| NSWwaterway4spircultural                      |
+| NSWwaterway5spircultural                      |
+| NSWwaterway1exerciseoutwater                  |
+| NSWwaterway2exerciseoutwater                  |
+| NSWwaterway3exerciseoutwater                  |
+| NSWwaterway4exerciseoutwater                  |
+| NSWwaterway5exerciseoutwater                  |
+| NSWwaterway1exerciseinwater                   |
+| NSWwaterway2exerciseinwater                   |
+| NSWwaterway3exerciseinwater                   |
+| NSWwaterway4exerciseinwater                   |
+| NSWwaterway5exerciseinwater                   |
+| NSWwaterway1exercisealltypes                  |
+| NSWwaterway2exercisealltypes                  |
+| NSWwaterway3exercisealltypes                  |
+| NSWwaterway4exercisealltypes                  |
+| NSWwaterway1relaxing                          |
+| NSWwaterway2relaxing                          |
+| NSWwaterway3relaxing                          |
+| NSWwaterway4relaxing                          |
+| NSWwaterway5relaxing                          |
+| NSWwaterway1fishing                           |
+| NSWwaterway2fishing                           |
+| NSWwaterway3fishing                           |
+| NSWwaterway4fishing                           |
+| NSWwaterway5fishing                           |
+| NSWwaterway1boating                           |
+| NSWwaterway2boating                           |
+| NSWwaterway3boating                           |
+| NSWwaterway4boating                           |
+| NSWwaterway5boating                           |
+| NSWwaterway1nrm                               |
+| NSWwaterway2nrm                               |
+| NSWwaterway3nrm                               |
+| NSWwaterway4nrm                               |
+| NSWwaterway5nrm                               |
+| NSWwaterway1other                             |
+| NSWwaterway2other                             |
+| NSWwaterway3other                             |
+| NSWwaterway4other                             |
+| NSWwaterway5other                             |
+| NSWwaterwayothdes                             |
+| NSWwaterway1visitoften                        |
+| NSWwaterway2visitoften                        |
+| NSWwaterway3visitoften                        |
+| NSWwaterway4visitoften                        |
+| NSWwaterway5visitoften                        |
+| NSWwaterway1envtlcondition                    |
+| NSWwaterway2envtlcondition                    |
+| NSWwaterway3envtlcondition                    |
+| NSWwaterway4envtlcondition                    |
+| NSWwaterway5envtlcondition                    |
+| NSWwaterway1ewater                            |
+| NSWwaterway2ewater                            |
+| NSWwaterway3ewater                            |
+| NSWwaterway4ewater                            |
+| NSWwaterway5ewater                            |
+| NSWwaterway1ewatersupport                     |
+| NSWwaterway2ewatersupport                     |
+| NSWwaterway3ewatersupport                     |
+| NSWwaterway4ewatersupport                     |
+| NSWwaterway5ewatersupport                     |
+| cMDBPheardofPlan                              |
+| cMDBPChangeCommHshld                          |
+| cMDBP3cViews                                  |
+| cMDBPBasinEnvtALL                             |
+| cMDBPBasinEconomicALL                         |
+| cMDBPBasinCommunALL                           |
+| cMDBPBasinWholeALL                            |
+| cMDBPMyHshld                                  |
+| cMDBPBusiness                                 |
+| cMDBPLocalComm                                |
+| aMDBPLocalEnvtALL                             |
+| cNRMdoingnow                                  |
+| cNRMdonelast5years                            |
+| cNRMdonemorethan5yearsago                     |
+| cNRMneverdone                                 |
+| cNRMonowndoingnow                             |
+| cNRMonowndonelast5years                       |
+| cNRMonowndonemorethan5yearsago                |
+| cNRMonownneverdone                            |
+| cNRMgovtgrantdoingnow                         |
+| cNRMgovtgrantdonelast5years                   |
+| cNRMgovtgrantdonemorethan5yearsago            |
+| cNRMgovtgrantneverdone                        |
+| cNRMlandcaredoingnow                          |
+| cNRMlandcaredonelast5years                    |
+| cNRMlandcaredonemorethan5yearsago             |
+| cNRMlandcareneverdone                         |
+| cNRMexpertadvicedoingnow                      |
+| cNRMexpertadvicedonelast5years                |
+| cNRMexpertadvicedonemorethan5yearsago         |
+| cNRMexpertadviceneverdone                     |
+| cNRMcourseworkshopdoingnow                    |
+| cNRMcourseworkshopdonelast5years              |
+| cNRMcourseworkshopdonemorethan5yearsago       |
+| cNRMcourseworkshopneverdone                   |
+| cNRMlocalhelpdoingnow                         |
+| cNRMlocalhelpdonelast5years                   |
+| cNRMlocalhelpdonemorethan5yearsago            |
+| cNRMlocalhelpneverdone                        |
+| cNRMtreesnearriparianYass                     |
+| cNRMtreesnearriparianYnoass                   |
+| cNRMtreesnearriparianNo                       |
+| cNRMtreesawayriparianYass                     |
+| cNRMtreesawayriparianYnoass                   |
+| cNRMtreesawayriparianNo                       |
+| cNRMtreesshadeshelterYass                     |
+| cNRMtreesshadeshelterYnoass                   |
+| cNRMtreesshadeshelterNo                       |
+| cNRMfencedriparianYass                        |
+| cNRMfencedriparianYnoass                      |
+| cNRMfencedriparianNo                          |
+| cNRMchggrazingforgroundcoverYass              |
+| cNRMchggrazingforgroundcoverYnoass            |
+| cNRMchggrazingforgroundcoverNo                |
+| cNRMregenallnativevegYass                     |
+| cNRMregenallnativevegYnoass                   |
+| cNRMregenallnativevegNo                       |
+| cNRMconscovenantYass                          |
+| cNRMconscovenantYnoass                        |
+| cNRMconscovenantNo                            |
+| cNRMreduceferalsdistrictYass                  |
+| cNRMreduceferalsdistrictYnoass                |
+| cNRMreduceferalsdistrictNo                    |
+| cNRMreduceweedsdistrictYass                   |
+| cNRMreduceweedsdistrictYnoass                 |
+| cNRMreduceweedsdistrictNo                     |
+| cNRMusetechtoreducefuelchemfertYass           |
+| cNRMusetechtoreducefuelchemfertYnoass         |
+| cNRMusetechtoreducefuelchemfertNo             |
+| cNRMregennativepastureYass                    |
+| cNRMregennativepastureYnoass                  |
+| cNRMregennativepastureNo                      |
+| cNRMdeliverewaterYass                         |
+| cNRMdeliverewaterYnoass                       |
+| cNRMdeliverewaterNo                           |
+| cFMREGENfarmplannrm                           |
+| cFMREGENgroundcoverpriority                   |
+| cFMREGENincreasediversity                     |
+| cFMREGENmonitorregenobjectives                |
+| cFMREGENnrmfarmprofit                         |
+| cFMBIOSECprotect                              |
+| cFMBIOSECriskmgt                              |
+| cWKAGRlikelyremain                            |
+| cWKAGRactivseekwork                           |
+| cWKAGRlookjobnotfrm                           |
+| cWKAGRcareerop                                |
+| cWKAGRenjoywork                               |
+| cWKAGRhourslong                               |
+| cWKAGRpaygood                                 |
+| cWKAGRaccommgood                              |
+| cWKAGRcareerdev                               |
+| cWKAGRskillsop                                |
+| cWKAGRhoursflex                               |
+| cWKAGRtimeoff                                 |
+| cWKAGRgoodperks                               |
+| cWKAGRgoodrelmanag                            |
+| cWKAGRgoodrelwrkrs                            |
+| cWKAGRgoodrelloccom                           |
+| cWKAGRlifestylegood                           |
+| cWKAGRfamconn                                 |
+| cWKAGRinherit                                 |
+| cAG2ownfarm                                   |
+| cAG2mngbehalf                                 |
+| cAG2helppartner                               |
+| cAG2helpfamily                                |
+| cFINRfrm                                      |
+| cFDyearsfarmed                                |
+| cFDareaowned                                  |
+| cFDarealeased                                 |
+| cFDareasharefarmed                            |
+| cFDareamanagedother                           |
+| cFDbusinessstructure                          |
+| cFDempft                                      |
+| cFDemppt                                      |
+| cFDempptfte                                   |
+| cFDempcas                                     |
+| cFDempcasfte                                  |
+| cFDirrigator                                  |
+| cFDdrylandfarmer                              |
+| cPROPWATERrivertrib                           |
+| cPROPWATERwaterbody                           |
+| cPROPWATERfloodplain                          |
+| cPROPWATERrivertribname                       |
+| cPROPWATERwaterbodyname                       |
+| cPROPWATERfloodplainname                      |
+| cPROPWATERrivertribh2ouse                     |
+| cPROPWATERwaterbodyh2ouse                     |
+| cPROPWATERfloodplainh2ouse                    |
+| cFDmostimpbus                                 |
+| cFDriceno                                     |
+| cFDriceminor                                  |
+| cFDricemajor                                  |
+| cFDgrainoilseedno                             |
+| cFDgrainoilseedminor                          |
+| cFDgrainoilseedmajor                          |
+| cFDfodderno                                   |
+| cFDfodderminor                                |
+| cFDfoddermajor                                |
+| cFDcottonno                                   |
+| cFDcottonminor                                |
+| cFDcottonmajor                                |
+| cFDwinegrapeno                                |
+| cFDwinegrapeminor                             |
+| cFDwinegrapemajor                             |
+| cFDnutsno                                     |
+| cFDnutsminor                                  |
+| cFDnutsmajor                                  |
+| cFDfruitno                                    |
+| cFDfruitminor                                 |
+| cFDfruitmajor                                 |
+| cFDfruittype                                  |
+| cFDvegetablesno                               |
+| cFDvegetablesminor                            |
+| cFDvegetablesmajor                            |
+| cFDsheepmeatno                                |
+| cFDsheepmeatminor                             |
+| cFDsheepmeatmajor                             |
+| cFDsheepwoolno                                |
+| cFDsheepwoolminor                             |
+| cFDsheepwoolmajor                             |
+| cFDdairymilkno                                |
+| cFDdairymilkminor                             |
+| cFDdairymilkmajor                             |
+| cFDextcattleno                                |
+| cFDextcattleminor                             |
+| cFDextcattlemajor                             |
+| cFDfeedlotcattleno                            |
+| cFDfeedlotcattleminor                         |
+| cFDfeedlotcattlemajor                         |
+| cFDpoultryno                                  |
+| cFDpoultryminor                               |
+| cFDpoultrymajor                               |
+| cFDpigsno                                     |
+| cFDpigsminor                                  |
+| cFDpigsmajor                                  |
+| cFDFDotherlivestockno                         |
+| cFDFDotherlivestockminor                      |
+| cFDFDotherlivestockmajor                      |
+| cFDstorpackno                                 |
+| cFDstorpackminor                              |
+| cFDstorpackmajor                              |
+| cFDhospno                                     |
+| cFDhospminor                                  |
+| cFDhospmajor                                  |
+| cFDretailno                                   |
+| cFDretailminor                                |
+| cFDretailmajor                                |
+| cFDotherno                                    |
+| cFDotherminor                                 |
+| cFDothermajor                                 |
+| cFDsugarno                                    |
+| cFDsugarminor                                 |
+| cFDsugarmajor                                 |
+| cFMALTNEWorganicorbiodynamic                  |
+| cFMALTNEWholisticorregen                      |
+| cFMALTNEWhighintensityrotgrazing              |
+| cFMALTNEWgrazingcharts                        |
+| cFMALTNEWzeromintillcrop                      |
+| cFMALTNEWprecisioncrop                        |
+| cFMALTNEWgmocrops                             |
+| cFMALTNEWyrsorganicorbiodynamic               |
+| cFMALTNEWyrsholisticorregen                   |
+| cFMALTNEWyrshighintensityrotgrazing           |
+| cFMALTNEWyrsgrazingcharts                     |
+| cFMALTNEWyrszeromintillcrop                   |
+| FMALTNEWyrsprecisioncrop                      |
+| FMALTNEWyrsgmocrops                           |
+| cFDincomefarmbus                              |
+| cFDincomeofffarmwork                          |
+| cFARMworkhours                                |
+| cOFFFARMworkhoursown                          |
+| cOFFFARMworkhoursspouse                       |
+| cOFFFARMINCdaytodayexpenses                   |
+| cOFFFARMINCwoulddoanyway                      |
+| cFMPERFfinancialstress                        |
+| cFMPERFsatisfied                              |
+| cFMMKTnochoice                                |
+| cFDgvap201415                                 |
+| cFDlossprofit                                 |
+| cFDBusCond                                    |
+| cFDdebt                                       |
+| cFDdebtservice                                |
+| cFD12mthapplyloan                             |
+| cFDcashflow                                   |
+| cFMhardtimemostapp                            |
+| cFMhardtimeleastapp                           |
+| cFMASSISTtffp                                 |
+| cFMASSISTffcl                                 |
+| cFMASSISTdrtcl                                |
+| cFMASSISTfha                                  |
+| cFMASSISTfdebtmed                             |
+| cFMASSISTrfcs                                 |
+| cFMASSISTfmd                                  |
+| cFMASSISTngohelpdifficuttimes                 |
+| cFMASSISTwatinfreb                            |
+| cFMASSISTcentrelinkother                      |
+| cFMASSISTonlineorphone                        |
+| cFMASSISTtffpuse                              |
+| cFMASSISTffcluse                              |
+| cFMASSISTdrtcluse                             |
+| cFMASSISTfhause                               |
+| cFMASSISTfdebtmeduse                          |
+| cFMASSISTrfcsuse                              |
+| cFMASSISTfmduse                               |
+| cFMASSISTngohelpdifficuttimesuse              |
+| cFMASSISTwatinfrebuse                         |
+| cFMASSISTcentrelinkotheruse                   |
+| cFMASSISTonlineorphoneuse                     |
+| cFMPLANmgtbusobjectives                       |
+| cFMPLANmgtbusplannotform                      |
+| cFMPLANmgtbusplandrought                      |
+| cFMPLANmgtbusplanassrisk                      |
+| cFMPLANmgtbusplansucc                         |
+| cFMPLANmgtbusplandisc                         |
+| cFMPLANmgtbusplanmonitor                      |
+| cFMPLANmgtbusplanreview                       |
+| cFMPLANmgtbusplanhelpdec                      |
+| cFMPLANmgtbusplanimpprod                      |
+| cFMPLANmgtbusplanlikelyimp                    |
+| cFMCONSULTpartner                             |
+| cFMCONSULTchildren                            |
+| cFMCONSULTotherfam                            |
+| cFMCONSULTbuspart                             |
+| cFMCONSULTagprof                              |
+| cFMCONSULTfinexp                              |
+| cFMCONSULTlawyer                              |
+| cFMCONSULTlandcare                            |
+| cFMCONSULTagorg                               |
+| cFMCONSULTagext                               |
+| cFMCONSULTothfarmers                          |
+| cFMMGTlessirrig                               |
+| cFMMGTmoreirrig                               |
+| cFMMGTirrigefficiency                         |
+| cFMMGTmoredryland                             |
+| cFMMGTboughtland                              |
+| cFMMGTleasednewland                           |
+| cFMMGTsoldpartbusiness                        |
+| cFMMGTleasedoutland                           |
+| cFMMGTinvestmachinerytechinf                  |
+| cFMMGTnewmarkets                              |
+| cFMMGTchangedwhatproduce                      |
+| cFMMGTchangedhowproduce                       |
+| cFMMGTincreasedhours                          |
+| cFMMGTreducedhours                            |
+| cFMMGTmoreofffarmwork                         |
+| cFMMGTsharedexpensesotherfarmers              |
+| cFMMGTreducedinputs                           |
+| cFMMGTpostponedinvestment                     |
+| cFMMGTreducedworkers                          |
+| cFMMGTreducedprofserv                         |
+| cFMMGTreducedproduction                       |
+| cFMMGTdestocked                               |
+| cFMMGTstoppedwatering                         |
+| cFMMGTdrewdownFMD                             |
+| cFM5yrleave                                   |
+| cFM5yrexpand                                  |
+| cFM5yrdownsize                                |
+| cFM5yrchangemix                               |
+| cFM5yrchangebusstruct                         |
+| cFM5yrmoreintense                             |
+| cFM5yraddofffmwrk                             |
+| cFM5yrredofffmwrk                             |
+| cFMPREVrunbusdrought                          |
+| cFMPREVrunbusnatdis                           |
+| cFMPREVrunbuspest                             |
+| cFMPREVrunbusriscost                          |
+| cFMPREVrunbuslackdemand                       |
+| cFMPREVrunbusfallprice                        |
+| cFPREVrunbusenvreg                            |
+| cFMPREVrunbusdifftrans                        |
+| cFMPREVrunbusdifflab                          |
+| cFMPREVrunbusredalloc                         |
+| cFMPREVrunbusincpermwater                     |
+| cFMPREVrunbusinctempwater                     |
+| cFMPREVrunbuslacktelcomm                      |
+| cFMPREVrunbusdiffaccfin                       |
+| cFMLABOURsource                               |
+| cFMLABOURrecruit                              |
+| cFMLABOUReaserecruit                          |
+| cFMLABOURoverseas                             |
+| cFMLABOURoverseasnumber                       |
+| cFMLABOURoverseaspercent                      |
+| cFMLABOURfailtorecruit                        |
+| cFMLABOURdiffseasonlowskill                   |
+| cFMLABOURdiffseasonhighskill                  |
+| cFMLABOURdiffpermlowskill                     |
+| cFMLABOURdiffpermhighskill                    |
+| cFMLABOURstopworkperformance                  |
+| cFMLABOURstopworknowork                       |
+| cFMLABOURstopworkvoluntarily                  |
+| cFMLABOURstopworkna                           |
+| cFMLABOURmgttraining                          |
+| cFMLABOURmgtconfident                         |
+| cFMLABOURmgtinvest                            |
+| cFMLABOURmgtworklife                          |
+| cFMLABOURmgtsafe                              |
+| cFMLABOURmgtohstraining                       |
+| cFMLABOURsafesector                           |
+| cFDirrigchanntotalML201415                    |
+| cFDirrigrivcrklake201415                      |
+| cFDirriggroundwater201415                     |
+| cFDirrigothersourceML201415                   |
+| cFDirrigcarryoverML                           |
+| cFDirrigallocationsoldML                      |
+| cFDirrigallocationboughtML                    |
+| cFDirrigdamtank201415                         |
+| cWRAccessRights                               |
+| cWReasytradetempwater                         |
+| cWReasytradeentitlements                      |
+| cWRwatermktfairforall                         |
+| cWRconfidenttotrade                           |
+| cWRrulechangesimproveconfidence               |
+| cWRgovtsamerules                              |
+| cWRmktrulesstable                             |
+| cWRknowaccessinfo                             |
+| cWReasyaccessinfo                             |
+| cIRRIGentitlementonly                         |
+| cIRRIGentbuyalloc                             |
+| cIRRIGallocationonly                          |
+| cIRRIGentregsellalloc                         |
+| cIRRIGentoccsellalloc                         |
+| cWTboughtentitlement                          |
+| cWTgovtbuyback                                |
+| cWTsoldentitlementnongovt                     |
+| cWTboughtallocation                           |
+| cWTsoldallocation                             |
+| cWTsellentPOSITIVE                            |
+| cWTsellentEASY                                |
+| cWTsellentlackbuyer                           |
+| cWTsellentlackmktinfo                         |
+| cWTbuyentMOREEXPENSIVE                        |
+| cWTbuyentPOSITIVE                             |
+| cWTbuyentEASY                                 |
+| cWTbuyentlackseller                           |
+| cWTbuyentlackmktinfo                          |
+| cWTsellallPOSITIVE                            |
+| cWTsellallEASY                                |
+| cWTsellalllackbuyer                           |
+| cWTsellalllackmktinfo                         |
+| WTbuyallEXPENSIVE                             |
+| WTbuyallPOSITIVE                              |
+| WTbuyallEASY                                  |
+| cWTbuyallackseller                            |
+| cWTbuyalllackmktinfo                          |
+| TOBECODEDlater1                               |
+| TOBECODEDlater2                               |
+| TOBECODEDlater3                               |
+| TOBECODEDlater4                               |
+| TOBECODEDlater5                               |
+| cFDirriginfupgrade                            |
+| cFDirriginfupgradepercent                     |
+| cFDirriginfupgradeyear                        |
+| cFDirriginfselffunded                         |
+| cFDirriginfgovtgrant                          |
+| cFDirriginfgrantIIOorFO                       |
+| cFDirriginfloanbankother                      |
+| cFDirriginfother                              |
+| cFDirriginfgrantSRWUIP                        |
+| cFDirriginfgrantfedgovt                       |
+| cFDirriginfgrantstategovt                     |
+| cFDirriginfgrantNRMagency                     |
+| cFDirriginfgrantwaterprovider                 |
+| cFDirriginfgrantfarmingorg                    |
+| cFDirriginfgrantother                         |
+| cFDirriginfgrantdontknow                      |
+| cFDirriginfwkH2Osystem                        |
+| cFDirriginfwktechnology                       |
+| cFDirriginfwklayoutdesign                     |
+| cFDirriginfwkmgtequipment                     |
+| cFDirriginfwkother                            |
+| cFDirriginfwkothdes                           |
+| cFDirriginfoutcomeworkload                    |
+| cFDirriginfoutcomelabour                      |
+| cFDirriginfoutcomeflexibility                 |
+| cFDirriginfoutcomelocalupgrade                |
+| cFDirriginfoutcomelocalmaintain               |
+| cFDirriginfaffectfarm                         |
+| cFDirriginfaffectprodyconstruction            |
+| cFDirriginfaffectproductivity                 |
+| cFDirriginfaffectprofitability                |
+| cFDirriginfaffectfarmdebt                     |
+| cFDirriginfaffectinputcosts                   |
+| cFDirriginfaffectmaintexp                     |
+| cFDirriginfaffectwaterefficiency              |
+| cFDirriginfaffectwatertiming                  |
+| cFDirriginfaffectpowercost                    |
+| cFDwaterproviderupgrade2008                   |
+| cFDwaterproviderupgradeYEAR                   |
+| cFDwaterprovupgradeSRWUIP                     |
+| cFDwaterprovupgradefedgovt                    |
+| cFDwaterprovupgradestategovt                  |
+| cFDwaterprovupgradeNRMagency                  |
+| cFDwaterprovupgradewaterprovider              |
+| cFDwaterprovupgradefarmingorg                 |
+| cFDwaterprovupgradeother                      |
+| cFDwaterprovupgradedontknow                   |
+| cFDwaterprovupgradeoutcomelabour              |
+| cFDwaterprovupgradeoutcomeflexibility         |
+| cFDwaterprovupgradeoutcomelocalupgrade        |
+| cFDwaterprovupgradeaffectfarm                 |
+| cFDwaterprovupgradeaffectprody                |
+| cFDwaterprovupgradeaffectprofitability        |
+| cFDwaterprovupgradeaffectfarmdebt             |
+| cFDwaterprovupgradeaffectinputcosts           |
+| cFDwaterprovupgradeaffectwaterefficiency      |
+| cFDwaterprovupgradeaffectwatertiming          |
+| cFDwaterprovupgradeaffectwatercost            |
+| cFDselltransferwaterent7yrs                   |
+| cFDselltransferentyear1                       |
+| cFDselltransferentpercent1                    |
+| cFDselltransferentyear2                       |
+| cFDselltransferentpercent2                    |
+| cFDsellentoutcomeleftfarming                  |
+| cFDsellentoutcomepayfarmdebt                  |
+| cFDsellentoutcomeimprovefarm                  |
+| cFDsellentoutcomeinfgrant                     |
+| cFDsellentoutcomehshlddebt                    |
+| cFDsellentoutcomebuyent                       |
+| cFDsellentoutcomeother                        |
+| cFDsellentwhatdid                             |
+| cFDsellentaffectlife                          |
+| cFDsellentaffectfarm                          |
+| cFDsellentaffectfarmdebt                      |
+| cFDsellentaffectprofitability                 |
+| cFDsellentaffectstress                        |
+| cFDsellentaffecthshldfinance                  |
+| cFDsellentaffectworkload                      |
+| cFDsellentaffectlocalcomm                     |
+| cSURVHEARflyer                                |
+| cSURVHEARemail                                |
+| cSURVHEARnewsletter                           |
+| cSURVHEARsocmedia                             |
+| cSURVHEARtradmedia                            |
+| cSURVHEARother                                |
+| cSURVdoinfuture                               |
+| cSURVlinkpermission                           |
+| Notfarmer1DrylandFarmer2Irrigator3UnspecFmr4  |
+| FarmerTypeSimple                              |
+| GReg_Weight_NoEdu_Cut                         |
+| cNATDISdrought12moAFFECTpers2                 |
+| cNATDISdrought12moAFFECTjobbus2               |
+| cNATDISdroughtAFFECThshld2                    |
+| cNATDISdroughtAFFECTcommunity2                |
+
 *** Step 1.3 set up dimensions
 #+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
-  
+  dimensions_provided <- c("Notfarmer1DrylandFarmer2Irrigator3UnspecFmr4",
+                           "SDgender",
+                           "cSDage")
   #### make new dimension?
   dat$Notfarmer1DrylandFarmer2Irrigator3 <- recode(dat$Notfarmer1DrylandFarmer2Irrigator3UnspecFmr4,
     recodes = "'1'='1.Non-farmer';'2'='2.Dryland farmer';'3'='3.Irrigator';'4'='4.Unspecified farmer';'-999'='-999'")
@@ -1203,18 +2337,27 @@ indat
     '     Prefer not to answer'='-999'")
   
   dat$cSDage2 <- recode(dat$cSDage,
-    recodes = "'Under 18 '='Under 18';18:39='18-39'; 40:54='40-54';55:64='55-64';65:96='65+';101='65+';-999='-999'")
+    recodes = "'Under 18 '='-999';18:39='18-39'; 40:54='40-54';55:64='55-64';65:96='65+';101='65+';-999='-999'")
     
+  dat$cSDage3 <- recode(dat$cSDage,
+    recodes = "'Under 18 '='-999';18:29='18-29'; 30:49='30-49';50:64='50-64';65:96='65+';101='65+';-999='-999'")
+  
   
   dimensions  <- c("Notfarmer1DrylandFarmer2Irrigator3", "SDgender2", "cSDage2")
   names(dat)[which(names(dat) %in% dimensions)]
 #+end_src
+
+#+RESULTS:
+| Notfarmer1DrylandFarmer2Irrigator3 |
+| SDgender2                          |
+| cSDage2                            |
+
 *** Step 2 collect all relevant metadata 
 #+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
   
-  mainvars_df <- data.frame(var = mainvars)
+  mainvars_df <- data.frame(var = c(mainvars, dimensions_provided))
   mainvars_df
-  mainvars_df <- merge(mainvars_df, metadata, by.x = "var", by.y = "Variable name")
+  mainvars_df <- merge(mainvars_df, metadata, by.x = "var", by.y = "Variable name", all.x = T)
   nrow(mainvars_df)
   names(mainvars_df)
   
@@ -1222,67 +2365,72 @@ indat
                   "Item stem - exact wording seen by respondents",
                   "Item - exact wording seen by respondent OR description of variable",
                   "Piping or display logic")]
-  
+  mainvars_df[is.na(mainvars_df$sortorder),"sortorder"] <- 99999
   mainvars_df <- mainvars_df[order(mainvars_df$sortorder),]
   mainvars_df[,c(1:2,4)]
 #+end_src
-*** Step 3 source func, load data, clean dimensions and mainvars
-#+begin_src R :session *R* :tangle inst/doc/expore_RWS_main.R :exports none :eval yes
-  ########################################################################################
-  # func
-  #rm(list = ls())
-  source("R/xtab_by_dimensions.R")
-  dir("inst/doc")
-  source("inst/doc/explore_RWS_define_scope.R")
-  ls()
-  mainvars
-  #dimension
-  
-  report_sections
-  sectionlabel <- "drought_ewe_AFFECTED_the_following"
-  
-  ########################################################################################3
-  # load
-  if(!exists("dat")){
-    source("inst/doc/explore_RWS_load.R")
-  }
-#+end_src
 
 #+RESULTS:
+|   158 | SDgender                                     | Do you identify as…Select one     |
+|   159 | cSDage                                       | Years:                            |
+|   238 | cNATDISdrought12moAFFECTpers                 | You personally                    |
+|   239 | cNATDISdrought12moAFFECTjobbus               | Your job/business (if applicable) |
+|   240 | cNATDISdroughtAFFECThshld                    | Other members of your household   |
+|   241 | cNATDISdroughtAFFECTcommunity                | Your local community              |
+| 99999 | Notfarmer1DrylandFarmer2Irrigator3UnspecFmr4 | nil                               |
+
 
 *** Step 4 do xtabs
-#+begin_src R :session *R* :tangle snip.R :exports none :eval yes
-   
+#+begin_src R :session *R* :tangle no :exports none :eval yes
   mainvars2 <- paste(mainvars, 2, sep  = "")
                      mainvars2
   names(dat)[which(names(dat) %in% dimensions)]
   
-  d2out_list <- list(0)
-  for(i in 1:length(mainvars2)){
-  #  i  = 1
+  datout  <- xtab_variables_by_dimensions(dat = dat,
+    pid = "cSURVID",
+    variables = mainvars2,
+    dimensions = dimensions,
+    weights = "GReg_Weight_NoEdu_Cut")
+  datout
   
-    mainvar  <- mainvars2[i]
-    mainvar
-    d2out2_list <- list(0) 
-    for(j in 1:length(dimensions)){
-      dimension <- dimensions[j]
-      
-      d2out2_list[[j]] <- xtab_by_dimensions(dat = dat,
-        pid = "cSURVID",
-        mainvar = mainvar,
-        dimension = dimension,
-        weights = "GReg_Weight_NoEdu_Cut",
-        extra_exclusions_dimension = "'Prefer not to answer'"                                         
-        )
-    }
-    d2out_list[[i]] <- rbindlist(d2out2_list)
-    
-  }
+  #dimensions
   
-  d2out_list
-  outout <- rbindlist(d2out_list)
+  dat$overall <- "Australia"
   
-  outout
+  datout  <- xtab_variables_by_dimensions(dat = dat,
+    pid = "cSURVID",
+    variables = c("cNATDISdroughthappen12mo",   "cNATDIScoldsnaphappen",
+    "cNATDISheatwavehappen",
+    "cNATDISbushfirehappen",
+    "cNATDISseverestormcyclonehappen",
+    "cNATDISfloodhappen"),
+    dimensions = c("overall", "cGEOGSTE", "cSDage3"),
+    weights = "GReg_Weight_NoEdu_Cut", 
+    ci_prop = "Yes")
+  datout
+  ls()
+  write.table(
+  sprintf("Data generated on %s from datafile = '%s' using variables listed below.  Weights = '%s' from file: '%s'",
+                    format(Sys.time(), "%d %b %Y %H:%M")
+                               ,
+                    infile_master
+          ,
+          "GReg_Weight_NoEdu_Cut",
+                    infile_wts
+                    )
+    , "inst/doc/explore_RWS_out.csv", sep = ",", row.names = F, col.names = F)
+  write.table(mainvars_df[,-1], "inst/doc/explore_RWS_out.csv", sep = ",", row.names = F, append=T)
+  write.table(
+  as.data.frame(matrix(rep("", ncol(datout)), nrow = 1))
+    , "inst/doc/explore_RWS_out.csv", sep = ",", row.names = F, col.names = F, append = T)
+  write.table(datout, "inst/doc/explore_RWS_out.csv", sep = ",", row.names = F, append = T)
+  
+#+end_src
+
+*** COMMENT snip
+#+begin_src R :session *R* :tangle no :exports none :eval no
+  #### name:snip ####
+
   ## write.csv(d2,
   ##           sprintf("figures_and_tables/%s.csv", sectionlabel)
   ##           , row.names=F)
@@ -1313,56 +2461,8 @@ indat
   ##           sprintf("figures_and_tables/%s_wide.csv", sectionlabel)
   ##           , row.names=F)
   
-#+end_src
 
-#+RESULTS:
-| cNATDISdrought12moAFFECTpers2   | Notfarmer1DrylandFarmer2Irrigator3 | 1.Non-farmer         |  0.4 | 0.36 | 0.17 | 0.04 | 0.04 | 3376 |
-| cNATDISdrought12moAFFECTpers2   | Notfarmer1DrylandFarmer2Irrigator3 | 2.Dryland farmer     | 0.16 | 0.53 | 0.16 | 0.14 | 0.01 | 2095 |
-| cNATDISdrought12moAFFECTpers2   | Notfarmer1DrylandFarmer2Irrigator3 | 3.Irrigator          | 0.17 | 0.49 | 0.18 | 0.15 | 0.01 |  879 |
-| cNATDISdrought12moAFFECTpers2   | Notfarmer1DrylandFarmer2Irrigator3 | 4.Unspecified farmer | 0.22 | 0.34 | 0.32 | 0.09 | 0.03 |  214 |
-| cNATDISdrought12moAFFECTpers2   | SDgender2                          | 1.Female             | 0.39 | 0.37 | 0.17 | 0.04 | 0.04 | 3470 |
-| cNATDISdrought12moAFFECTpers2   | SDgender2                          | 2.Male               | 0.36 | 0.37 | 0.17 | 0.06 | 0.04 | 3114 |
-| cNATDISdrought12moAFFECTpers2   | cSDage2                            | 18-39                | 0.42 | 0.35 | 0.13 | 0.03 | 0.07 |  716 |
-| cNATDISdrought12moAFFECTpers2   | cSDage2                            | 40-54                | 0.37 | 0.39 | 0.18 | 0.04 | 0.02 | 1760 |
-| cNATDISdrought12moAFFECTpers2   | cSDage2                            | 55-64                | 0.32 | 0.39 | 0.19 | 0.07 | 0.03 | 2033 |
-| cNATDISdrought12moAFFECTpers2   | cSDage2                            | 65+                  | 0.37 | 0.33 | 0.16 | 0.12 | 0.01 | 2071 |
-| cNATDISdrought12moAFFECTpers2   | cSDage2                            | Under 18             | 0.63 | 0.19 | 0.09 |    0 | 0.09 |    5 |
-| cNATDISdrought12moAFFECTjobbus2 | Notfarmer1DrylandFarmer2Irrigator3 | 1.Non-farmer         | 0.54 | 0.27 | 0.09 | 0.04 | 0.06 | 3075 |
-| cNATDISdrought12moAFFECTjobbus2 | Notfarmer1DrylandFarmer2Irrigator3 | 2.Dryland farmer     | 0.16 | 0.56 | 0.11 | 0.15 | 0.01 | 2031 |
-| cNATDISdrought12moAFFECTjobbus2 | Notfarmer1DrylandFarmer2Irrigator3 | 3.Irrigator          | 0.15 | 0.56 | 0.11 | 0.16 | 0.01 |  865 |
-| cNATDISdrought12moAFFECTjobbus2 | Notfarmer1DrylandFarmer2Irrigator3 | 4.Unspecified farmer | 0.24 | 0.58 | 0.07 | 0.09 | 0.01 |  190 |
-| cNATDISdrought12moAFFECTjobbus2 | SDgender2                          | 1.Female             | 0.53 | 0.28 | 0.08 | 0.04 | 0.07 | 3248 |
-| cNATDISdrought12moAFFECTjobbus2 | SDgender2                          | 2.Male               | 0.46 | 0.32 |  0.1 | 0.08 | 0.05 | 2931 |
-| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | 18-39                | 0.48 | 0.32 | 0.09 | 0.05 | 0.06 |  710 |
-| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | 40-54                | 0.48 | 0.31 |  0.1 | 0.05 | 0.06 | 1725 |
-| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | 55-64                | 0.53 | 0.25 |  0.1 | 0.07 | 0.06 | 1971 |
-| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | 65+                  | 0.58 | 0.24 | 0.06 | 0.09 | 0.03 | 1770 |
-| cNATDISdrought12moAFFECTjobbus2 | cSDage2                            | Under 18             | 0.63 | 0.19 |    0 |    0 | 0.18 |    5 |
-| cNATDISdroughtAFFECThshld2      | Notfarmer1DrylandFarmer2Irrigator3 | 1.Non-farmer         | 0.49 | 0.28 | 0.12 | 0.04 | 0.07 | 3243 |
-| cNATDISdroughtAFFECThshld2      | Notfarmer1DrylandFarmer2Irrigator3 | 2.Dryland farmer     |  0.2 | 0.51 | 0.15 | 0.12 | 0.03 | 2010 |
-| cNATDISdroughtAFFECThshld2      | Notfarmer1DrylandFarmer2Irrigator3 | 3.Irrigator          | 0.22 | 0.43 | 0.17 | 0.14 | 0.03 |  837 |
-| cNATDISdroughtAFFECThshld2      | Notfarmer1DrylandFarmer2Irrigator3 | 4.Unspecified farmer | 0.23 | 0.54 | 0.11 | 0.11 | 0.01 |  192 |
-| cNATDISdroughtAFFECThshld2      | SDgender2                          | 1.Female             | 0.44 | 0.33 | 0.13 | 0.05 | 0.05 | 3342 |
-| cNATDISdroughtAFFECThshld2      | SDgender2                          | 2.Male               | 0.49 | 0.27 | 0.11 | 0.05 | 0.08 | 2960 |
-| cNATDISdroughtAFFECThshld2      | cSDage2                            | 18-39                | 0.47 | 0.31 |  0.1 | 0.05 | 0.08 |  711 |
-| cNATDISdroughtAFFECThshld2      | cSDage2                            | 40-54                | 0.46 | 0.31 | 0.13 | 0.05 | 0.06 | 1736 |
-| cNATDISdroughtAFFECThshld2      | cSDage2                            | 55-64                | 0.45 |  0.3 | 0.15 | 0.05 | 0.06 | 1964 |
-| cNATDISdroughtAFFECThshld2      | cSDage2                            | 65+                  | 0.49 | 0.26 | 0.11 | 0.09 | 0.06 | 1887 |
-| cNATDISdroughtAFFECThshld2      | cSDage2                            | Under 18             |    0 | 0.19 |    0 | 0.63 | 0.18 |    5 |
-| cNATDISdroughtAFFECTcommunity2  | Notfarmer1DrylandFarmer2Irrigator3 | 1.Non-farmer         | 0.03 | 0.66 | 0.11 | 0.12 | 0.08 | 3383 |
-| cNATDISdroughtAFFECTcommunity2  | Notfarmer1DrylandFarmer2Irrigator3 | 2.Dryland farmer     | 0.09 | 0.59 | 0.11 | 0.17 | 0.03 | 2089 |
-| cNATDISdroughtAFFECTcommunity2  | Notfarmer1DrylandFarmer2Irrigator3 | 3.Irrigator          | 0.06 | 0.57 | 0.12 | 0.16 | 0.08 |  871 |
-| cNATDISdroughtAFFECTcommunity2  | Notfarmer1DrylandFarmer2Irrigator3 | 4.Unspecified farmer | 0.08 | 0.41 | 0.08 | 0.39 | 0.05 |  214 |
-| cNATDISdroughtAFFECTcommunity2  | SDgender2                          | 1.Female             | 0.02 | 0.68 |  0.1 | 0.11 | 0.08 | 3482 |
-| cNATDISdroughtAFFECTcommunity2  | SDgender2                          | 2.Male               | 0.04 | 0.63 | 0.12 | 0.14 | 0.06 | 3095 |
-| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | 18-39                | 0.02 |  0.7 | 0.08 |  0.1 | 0.09 |  717 |
-| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | 40-54                | 0.03 | 0.69 | 0.12 |  0.1 | 0.05 | 1758 |
-| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | 55-64                | 0.02 |  0.6 | 0.13 | 0.16 | 0.09 | 2030 |
-| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | 65+                  | 0.08 | 0.46 | 0.18 | 0.22 | 0.06 | 2067 |
-| cNATDISdroughtAFFECTcommunity2  | cSDage2                            | Under 18             |    0 | 0.73 |    0 | 0.09 | 0.18 |    5 |
-*** COMMENT snip
-#+begin_src R :session *R* :tangle snip.R :exports none :eval no
-  #### name:snip ####
+
 
   ########################################################################################3
   # do
@@ -1414,3 +2514,103 @@ indat
   
 #+end_src
 
+** proptest
+https://stats.stackexchange.com/questions/224045/using-lm-for-2-sample-proportion-test
+* Share
+** apply value labels in R and write to SPSS
+#+name:R-spss-variable-labels
+#+begin_src R :session *R* :tangle no :exports reports :eval no
+  ################################################################
+  # name:R-spss-variable-labels
+  # from http://stackoverflow.com/q/10181730
+  # First I create a dummy dataset
+  df <- data.frame(id = c(1:6), p.code = c(1, 5, 4, NA, 0, 5),  
+                   p.label = c('Optometrists', 'Nurses', 'Financial analysts',
+                   '<NA>', '0', 'Nurses'), foo = LETTERS[1:6])
+  
+  # Second, I add some variable labels using label from the Hmisc package
+  # install.packages('Hmisc', dependencies = TRUE)
+  library(Hmisc)
+  label(df) <- "Sweet sweet data"
+  label(df$id) <- "id !@#$%^" 
+  label(df$p.label) <- "Profession with human readable information"
+  label(df$p.code) <- "Profession code"
+  label(df$foo) <- "Variable label for variable x.var"
+  # modify the name of one varibes, just to see what happens when exported.
+  names(df)[4] <- "New crazy name for 'foo'"
+  
+  attributes(df)$variable.labels
+  
+  # Third I export the data with write.foreign from the foreign package
+  # install.packages('foreign', dependencies = TRUE)
+  setwd('inst/extdata')
+  library(foreign)
+  write.foreign(df,"df.wf.txt","df.wf.sps",  package="SPSS")
+  
+  list.files()
+  # [1] "df.wf.sps" "df.wf.txt"
+  
+  # from http://stackoverflow.com/a/10261534
+  # Step 1: Make a backup of your data, just in case
+  df.orig = df
+  # Step 2: Load the following function
+  get.var.labels = function(data) {
+    a = do.call(llist, data)
+    tempout = vector("list", length(a))
+  
+    for (i in 1:length(a)) {
+      tempout[[i]] = label(a[[i]])
+    }
+    b = unlist(tempout)
+    structure(c(b), .Names = names(data))
+  }
+  # Step 3: Apply the variable.label attributes
+  attributes(df)$variable.labels = get.var.labels(df)
+  # Step 4: Load the write.SPSS function available from
+  # https://stat.ethz.ch/pipermail/r-help/2006-January/085941.html
+  
+  write.SPSS <- function (df, datafile, codefile, varnames = NULL)
+    {
+      adQuote <- function(x){paste("\"", x, "\"", sep = "")}
+       dfn <- lapply(df, function(x) if (is.factor(x))
+           as.numeric(x)
+       else x)
+       write.table(dfn, file = datafile, row = FALSE, col = FALSE)
+       if(is.null(attributes(df)$variable.labels)) varlabels <- names(df) else varlabels <- attributes(df)$variable.labels
+       if (is.null(varnames)) {
+           varnames <- abbreviate(names(df), 8)
+           if (any(sapply(varnames, nchar) > 8))
+               stop("I cannot abbreviate the variable names to eight or fewer letters")
+           if (any(varnames != names(df)))
+               warning("some variable names were abbreviated")
+       }
+       cat("DATA LIST FILE=", dQuote(datafile), " free\n", file = codefile)
+       cat("/", varnames, " .\n\n", file = codefile, append = TRUE)
+       cat("VARIABLE LABELS\n", file = codefile, append = TRUE)
+       cat(paste(varnames, adQuote(varlabels), "\n"), ".\n", file = codefile,
+           append = TRUE)
+       factors <- sapply(df, is.factor)
+       if (any(factors)) {
+           cat("\nVALUE LABELS\n", file = codefile, append = TRUE)
+           for (v in which(factors)) {
+               cat("/\n", file = codefile, append = TRUE)
+               cat(varnames[v], " \n", file = codefile, append = TRUE)
+               levs <- levels(df[[v]])
+               cat(paste(1:length(levs), adQuote(levs), "\n", sep = " "),
+                   file = codefile, append = TRUE)
+           }
+           cat(".\n", file = codefile, append = TRUE)
+       }
+       cat("\nEXECUTE.\n", file = codefile, append = TRUE)
+    }
+  
+  # Step 5: Write your SPSS datafile and codefile
+  write.SPSS(df, "df.sav", "df.sps")
+  
+  ## analyte  <- read.spss("df.sav", to.data.frame = T)
+  ## Error in read.spss("df.sav", to.data.frame = T) : 
+  ##   file 'df.sav' is not in any supported SPSS format
+  
+  
+  
+#+end_src
