@@ -996,13 +996,13 @@ indat
   source("inst/doc/explore_RWS_define_scope.R")
 #+end_src
 *** TODO Function xtab_by_dimensions
-#+begin_src R :session *R* :tangle R/xtab_by_dimensions.R :exports none :eval yes
+#+begin_src R :session *shell* :tangle R/xtab_by_dimensions.R :exports none :eval yes
   xtab_by_dimensions <- function(
     dat = dat
     ,
     pid = "cSURVID"
     ,
-    mainvar = "cNATDISdroughthappen12mo" 
+    mainvar = "cNATDISdroughthappen12moV2" 
     ,
     dimension = "overall"
     ,
@@ -1068,20 +1068,29 @@ indat
   #nrow(datin)
   # 6558
   #head(datin[,1:4])
+  if(is.null(weights)){
+  # n
+  n <- table(datin[,dimension])
+  #n
   
+  txt <- paste("summa <- cbind('",mainvar,"', '",dimension,"', n, t(prop.table(table(datin[,c('",mainvar,"','",dimension,"')]),2)))", sep = '')
+  #txt
+  } else {  
   
   # unweighted n
   n <- table(datin[,dimension])
   #n
   #dat_wt <- svydesign(ids = ~Notfarmer1DrylandFarmer2Irrigator3, data
   #= datin, weights = datin$GReg_Weight_NoEdu_Cut)
-  txt1 <- paste("dat_wt <- svydesign(ids = ~",mainvar,", data = datin, weights = datin$",weights,")", sep = "")
+  txt1 <- paste("dat_wt <- svydesign(id = ~1, data = datin, weights = datin$",weights,")", sep = "")
   #txt1
   eval(parse(text=txt1))    
   #summary(dat_wt)
   #str(dat_wt)
   
   txt <- paste("summa <- cbind('",mainvar,"', '",dimension,"', n, t(prop.table(svytable(~",mainvar,"+",dimension,", design = dat_wt),2)))", sep = '')
+  }
+  
   #txt
   #qc <- t(prop.table(svytable(~cNATDISdroughthappen12mo+Notfarmer1DrylandFarmer2Irrigator3, design = dat_wt),2))
   #qc
