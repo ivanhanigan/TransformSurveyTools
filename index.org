@@ -170,8 +170,36 @@ detractors from promoters.
 ** Reshape: To Wide
 ** Summarise
 * Do
-** COMMENT Misclassification Error Rate for Classification Trees
-** COMMENT Deviance Based Measures of Descriptive Power for Classification Trees
+** Demonstration of Recursive Partitioning Trees (rpart) and Condition trees (ctree)
+*** COMMENT demo
+#+name:demo
+#+begin_src R :session *R* :tangle tests/rpart-demo-with-party-civil-status.R :exports none :eval no :padline no
+library(rpart)
+library(partykit)
+
+df <- read.csv("civst_gend_sector_full.csv")
+# clean
+nrow(df)
+str(df)
+fit1 <- rpart(civil_status ~ gender + activity_sector, data = df)
+summary(fit1)
+
+# report
+par(xpd = NA) # to avoid text clipping at edge
+plot(fit1)
+text(fit1, use.n = TRUE)
+title("fit1")
+# a modern display via the party package
+plot(as.party(fit1))
+
+# and with the party package they implement a conditional inference framework.  
+fitc <- ctree(civil_status ~ gender + activity_sector, data = df)
+plot(fitc)
+
+#+end_src
+
+** Misclassification Error Rate for Classification Trees
+** Deviance Based Measures of Descriptive Power for Classification Trees
 *** Computing-and-using-deviance-with-classification-trees-Ritschard, G. (2006).
 I'm reading Ritschard, G. (2006). Computing and using the deviance with classification trees. In Compstat 2006 - Proceedings in Computational Statistics 17th Symposium Held in Rome, Italy, 2006. Retrieved from http://link.springer.com/chapter/10.1007%2F978-3-7908-1709-6_5
 
@@ -2525,6 +2553,7 @@ indat
 
 ** proptest
 https://stats.stackexchange.com/questions/224045/using-lm-for-2-sample-proportion-test
+** rescale scales
 (Card, N., Applied Meta-Analysis for Social Science Research, 2011, pg. 148).
 
 As per this http://stats.stackexchange.com/questions/99325/transforming-scores-between-different-rating-scales-importance-of-response-opt
