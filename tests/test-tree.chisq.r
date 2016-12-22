@@ -2,7 +2,7 @@
 # func
 require(tree)
 require(devtools)
-install_github("TransformSurveyTools", "ivanhanigan")
+install_github("ivanhanigan/TransformSurveyTools")
 require(TransformSurveyTools)
 # load locally
 # fpath  <- "inst/extdata/civst_gend_sector_full.csv"

@@ -174,28 +174,32 @@ detractors from promoters.
 *** COMMENT demo
 #+name:demo
 #+begin_src R :session *R* :tangle inst/doc/rpart-demo-with-party-civil-status.R :exports none :eval no :padline no
-library(rpart)
-library(partykit)
-
-df <- read.csv("civst_gend_sector_full.csv")
-# clean
-nrow(df)
-str(df)
-fit1 <- rpart(civil_status ~ gender + activity_sector, data = df)
-summary(fit1)
-
-# report
-par(xpd = NA) # to avoid text clipping at edge
-plot(fit1)
-text(fit1, use.n = TRUE)
-title("fit1")
-# a modern display via the party package
-plot(as.party(fit1))
-
-# and with the party package they implement a conditional inference framework.  
-fitc <- ctree(civil_status ~ gender + activity_sector, data = df)
-plot(fitc)
-
+  library(rpart)
+  library(partykit)
+  require(devtools)
+  install_github("ivanhanigan/TransformSurveyTools")
+  require(TransformSurveyTools)
+  
+  fpath <- system.file("extdata", "civst_gend_sector_full.csv", package="TransformSurveyTools")
+  df <- read.csv(fpath)
+  # clean
+  nrow(df)
+  str(df)
+  fit1 <- rpart(civil_status ~ gender + activity_sector, data = df)
+  summary(fit1)
+  
+  # report
+  par(xpd = NA) # to avoid text clipping at edge
+  plot(fit1)
+  text(fit1, use.n = TRUE)
+  title("fit1")
+  # a modern display via the party package
+  plot(as.party(fit1))
+  
+  # and with the party package they implement a conditional inference framework.  
+  fitc <- ctree(civil_status ~ gender + activity_sector, data = df)
+  plot(fitc)
+  
 #+end_src
 
 ** Misclassification Error Rate for Classification Trees
@@ -449,7 +453,7 @@ Under hypothesis that less complex (reduced) model is adequate, difference follo
   # func
   require(tree)
   require(devtools)
-  install_github("TransformSurveyTools", "ivanhanigan")
+  install_github("ivanhanigan/TransformSurveyTools")
   require(TransformSurveyTools)
   # load locally
   # fpath  <- "inst/extdata/civst_gend_sector_full.csv"
