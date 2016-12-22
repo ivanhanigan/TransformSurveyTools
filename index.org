@@ -173,7 +173,7 @@ detractors from promoters.
 ** Demonstration of Recursive Partitioning Trees (rpart) and Condition trees (ctree)
 *** COMMENT demo
 #+name:demo
-#+begin_src R :session *R* :tangle tests/rpart-demo-with-party-civil-status.R :exports none :eval no :padline no
+#+begin_src R :session *R* :tangle inst/doc/rpart-demo-with-party-civil-status.R :exports none :eval no :padline no
 library(rpart)
 library(partykit)
 
